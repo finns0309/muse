@@ -1,0 +1,18 @@
+{
+  "name": "muse",
+  "productName": "Muse",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local NetEase music runtime for fast library routing and accurate echo state.",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "dependencies": {
+    "@neteasecloudmusicapienhanced/api": "^4.32.0",
+    "ws": "^8.20.0"
+  },
+  "devDependencies": {
+    "electron": "^33.4.11"
+  }
+}

@@ -1,0 +1,388 @@
+// Owns the single <audio> element. Pushes state into the store on every tick
+// and forwards a snapshot to main (over IPC) so echo' /now endpoint
+// stays current. Modes drive the queue via `setQueue()`; single-track loop is
+// a separate flag so we don't conflate "loop one" with "loop queue".
+
+import { store } from './store.js';
+import { api, ApiError } from './api.js';
+
+const audio = new Audio();
+audio.preload = 'auto';
+
+// When queue runs out: loop to first. Modes that want single-track loop flip
+// `audio.loop = true` via setLoop() — the 'ended' event never fires in that case.
+let queueLoop = true;
+
+// ---- Public actions ---------------------------------------------------------
+
+export async function playTrack(track, queue = null, queueIdx = -1) {
+  if (!track || typeof track.id !== 'number') throw new TypeError('playTrack: track.id required');
+  const q = queue || [track];
+  const idx = queueIdx >= 0 ? queueIdx : q.findIndex((t) => t.id === track.id);
+
+  const ok = store.race('player');
+  const prevSnapshot = store.get().player;
+
+  // Scrobble the previous track before we overwrite state. Safe to call even
+  // if nothing is loaded yet (no-op when scrobbleTrack is null).
+  maybeScrobble();
+  resetScrobble(track);
+
+  store.set((s) => ({ ...s, player: { ...s.player, track, queue: q, queueIdx: idx } }));
+
+  let url;
+  try {
+    // Tight timeouts here because the user is actively waiting on this fetch.
+    // Default (15s × 4 attempts) is fine for background calls but feels frozen
+    // during a track switch — cap worst case at ~16s so playFromQueue's skip
+    // fallback kicks in before the user gives up and clicks something else.
+    const r = await api('/song/url/v1', { id: track.id, level: 'standard' },
+      { timeout: 5_000, retry: { attempts: 2, baseDelayMs: 250 } });
+    url = r?.data?.[0]?.url;
+  } catch (e) {
+    if (!ok()) return;
+    store.set((s) => ({ ...s, player: prevSnapshot }));
+    throw e;
+  }
+
+  if (!ok()) return;
+
+  if (!url) {
+    store.set((s) => ({ ...s, player: prevSnapshot }));
+    throw new ApiError('无版权或获取失败', { path: '/song/url/v1' });
+  }
+
+  audio.src = url;
+  // Push meta now — lyrics can show the title immediately instead of waiting
+  // for the first timeupdate after audio actually starts.
+  pushPlayerState();
+  try { await audio.play(); }
+  catch (e) { console.warn('audio.play()', e); }
+}
+
+// Replace the queue and start playing. Used by radio modes on activation.
+// `startIdx` defaults to 0. If queue is empty, clears the player.
+export function setQueue(tracks, { startIdx = 0 } = {}) {
+  if (!Array.isArray(tracks)) throw new TypeError('setQueue: tracks must be an array');
+  // Clear single-loop carryover. Without this, leaving 'single' mode by
+  // picking a song in cmdk would silently inherit audio.loop=true and the
+  // new song would repeat forever. Modes that want loop call setLoop(true)
+  // AFTER setQueue (see radio.js activate()); audio.loop is a persistent
+  // property on the element, so re-enabling it right after still takes
+  // effect on the track that setQueue just started playing.
+  audio.loop = false;
+  if (!tracks.length) {
+    store.set((s) => ({ ...s, player: { ...s.player, queue: [], queueIdx: -1 } }));
+    return;
+  }
+  const idx = Math.max(0, Math.min(startIdx, tracks.length - 1));
+  const target = tracks[idx];
+  const cur = store.get().player;
+  // If the target is already playing, just attach the new queue without
+  // reloading audio — matters most for single-loop activation so the current
+  // track doesn't restart from 0s just because the user picked the mode.
+  if (cur.track?.id === target.id && !audio.paused) {
+    store.set((s) => ({ ...s, player: { ...s.player, queue: tracks, queueIdx: idx } }));
+    return;
+  }
+  if (tracks.length > 1) return playFromQueue(tracks, idx, 1, { allowLoop: true });
+  return playTrack(target, tracks, idx);
+}
+
+export function setLoop(single) {
+  audio.loop = !!single;
+}
+export function setQueueLoop(flag) { queueLoop = !!flag; }
+
+export function toggle() { if (audio.paused) audio.play().catch(() => {}); else audio.pause(); }
+export function pause()  { audio.pause(); }
+export function play()   { audio.play().catch(() => {}); }
+
+export function seek(t) {
+  const dur = audio.duration;
+  if (!Number.isFinite(t)) return;
+  audio.currentTime = Math.max(0, Math.min(t, dur || t));
+}
+
+export function next() {
+  const { queue, queueIdx } = store.get().player;
+  if (!queue.length) return;
+  if (queueIdx + 1 < queue.length) {
+    playFromQueue(queue, queueIdx + 1, 1, { allowLoop: false }).catch(swallowExpected);
+  } else if (queueLoop) {
+    playFromQueue(queue, 0, 1, { allowLoop: true }).catch(swallowExpected);
+  }
+}
+
+export function prev() {
+  const { queue, queueIdx } = store.get().player;
+  if (queueIdx > 0) playFromQueue(queue, queueIdx - 1, -1, { allowLoop: false }).catch(swallowExpected);
+  else seek(0);
+}
+
+// Jump directly to the given queue index (used by the cmdk /queue view). If
+// the target is unavailable, playFromQueue's own skip logic advances forward
+// to find something playable — matches user expectation of "play from here".
+export function playAt(idx) {
+  const { queue } = store.get().player;
+  if (!queue.length || idx < 0 || idx >= queue.length) return;
+  playFromQueue(queue, idx, 1, { allowLoop: false }).catch(swallowExpected);
+}
+
+async function playFromQueue(queue, startIdx, step, { allowLoop }) {
+  const tried = new Set();
+  let idx = startIdx;
+  let lastErr = null;
+
+  while (idx >= 0 && idx < queue.length && !tried.has(idx)) {
+    tried.add(idx);
+    try {
+      return await playTrack(queue[idx], queue, idx);
+    } catch (e) {
+      lastErr = e;
+      if (!(e instanceof ApiError)) throw e;
+      console.warn('[player] skip unavailable', queue[idx]?.name || queue[idx]?.id, e.message);
+    }
+
+    idx += step;
+    if (allowLoop) {
+      if (idx >= queue.length) idx = 0;
+      if (idx < 0) idx = queue.length - 1;
+    }
+  }
+
+  if (lastErr) throw lastErr;
+}
+
+function swallowExpected(e) {
+  if (e instanceof ApiError) console.warn('[player]', e.message);
+  else throw e;
+}
+
+// Subscribers notified when a track finishes naturally (not via user skip).
+// Modes use this to track per-song play counts + append more tracks on
+// exhaustion (for modes with async `extend()` hooks, future).
+const endHandlers = new Set();
+export function onEnded(fn) { endHandlers.add(fn); return () => endHandlers.delete(fn); }
+
+// ---- Scrobble (NetEase listen history) --------------------------------------
+// We accumulate played seconds per track across play/pause segments. On track
+// change or natural end we POST /scrobble if the track was actually listened
+// to — NetEase's own mobile client uses a similar "played enough" gate, we
+// copy the common Last.fm-style rule (>=30s OR >=50% of duration).
+
+let segmentStart = -1;   // audio.currentTime at last 'play' event, -1 if paused
+let accumPlayed = 0;     // seconds played so far for the current track
+let scrobbled = false;   // guard against double-scrobbling same track
+let scrobbleTrack = null; // snapshot of the track being accumulated
+
+function commitSegment() {
+  if (segmentStart >= 0) {
+    accumPlayed += Math.max(0, audio.currentTime - segmentStart);
+    segmentStart = -1;
+  }
+}
+
+function resetScrobble(track) {
+  accumPlayed = 0;
+  segmentStart = -1;
+  scrobbled = false;
+  scrobbleTrack = track || null;
+}
+
+function maybeScrobble() {
+  commitSegment();
+  if (scrobbled || !scrobbleTrack) return;
+  const dur = scrobbleTrack.dt ? scrobbleTrack.dt / 1000 : (audio.duration || 0);
+  if (accumPlayed < 30 && (dur === 0 || accumPlayed < dur * 0.5)) return;
+  scrobbled = true;
+  // NCM silently DROPS scrobbles with sourceid=0 — that was the reason listen
+  // history never updated. The mobile client always attributes plays to a
+  // real source (playlist / album / artist / djradio). For muse's 红心-centric
+  // flow, the natural source is the user's 我喜欢 playlist. For cloud-search
+  // samples not in 红心 we skip scrobble entirely: attributing them to the
+  // liked playlist would be a lie (NCM may reject or pollute analytics), and
+  // those plays shouldn't be in the user's listen history anyway.
+  const { tracks, likedPlaylistId } = store.get().library;
+  const inLibrary = tracks.some((t) => t.id === scrobbleTrack.id);
+  if (!likedPlaylistId || !inLibrary) {
+    console.info('[player] scrobble skipped · not in 红心 or library not loaded');
+    return;
+  }
+  api('/scrobble', { id: scrobbleTrack.id, sourceid: likedPlaylistId, time: Math.floor(accumPlayed) })
+    .then(() => console.info('[player] scrobbled', scrobbleTrack.name, `sourceid=${likedPlaylistId}`))
+    .catch((e) => console.warn('[player] scrobble failed', e?.message || e));
+}
+
+// ---- Audio → store wiring ---------------------------------------------------
+
+audio.addEventListener('play', () => {
+  segmentStart = audio.currentTime;
+  patch({ playing: true });
+  pushPlayerState();
+});
+audio.addEventListener('pause', () => {
+  commitSegment();
+  patch({ playing: false });
+  pushPlayerState();
+});
+audio.addEventListener('ended', () => {
+  // Notify mode subscribers first (they may want to extend the queue),
+  // then scrobble + advance. If audio.loop is on this event never fires.
+  for (const fn of endHandlers) { try { fn(); } catch (e) { console.error(e); } }
+  maybeScrobble();
+  next();
+});
+audio.addEventListener('loadedmetadata', () => {
+  patch({ duration: audio.duration || 0 });
+  pushPlayerState();
+});
+audio.addEventListener('error', () => {
+  patch({ playing: false });
+  console.warn('[player] audio error', audio.error?.code, audio.error?.message);
+});
+
+// timeupdate fires ~4Hz while playing, never while paused — perfect single
+// source of truth for forwarding state to echo's /now. Throttle
+// keeps us at 4Hz even if the browser speeds up.
+let lastPushed = 0;
+audio.addEventListener('timeupdate', () => {
+  const now = performance.now();
+  if (now - lastPushed < 240) return;
+  lastPushed = now;
+  patch({ currentTime: audio.currentTime || 0 });
+  pushPlayerState();
+});
+
+function patch(partial) {
+  store.set((s) => ({ ...s, player: { ...s.player, ...partial } }));
+}
+
+// ---- Player → main IPC (so echo's /now stays accurate) -----------
+// No setInterval here — pushPlayerState() is called from the audio events
+// above (play/pause/timeupdate/loadedmetadata) and from playTrack once the
+// new track is in the store. That covers every moment echo would
+// want an update, without burning CPU while paused.
+
+function pushPlayerState() {
+  const { track } = store.get().player;
+  if (!track) return;
+  window.muse.sendPlayerState({
+    title: track.name,
+    artist: (track.ar || []).map((a) => a.name).join(', '),
+    album: track.al?.name || '',
+    cover: track.al?.picUrl || '',
+    songId: track.id,
+    duration: audio.duration || 0,
+    currentTime: audio.currentTime || 0,
+    playing: !audio.paused,
+  });
+}
+
+// ---- Spectrum broadcast -----------------------------------------------------
+// Wire-format doc: ./NOW_PLAYING.md §Spectrum channel (v1.2).
+// Contract: 24 log-spaced bands, 60Hz–12kHz, sqrt-perceptual, ~30fps, paused
+// means silence (no frames — consumer fades out on its own).
+
+const BAND_COUNT = 24;
+const SAMPLE_HZ = 30;
+const FMIN = 60;
+const FMAX = 12000;
+
+let ac = null;
+let analyser = null;
+let freqBuf = null;        // Uint8Array, reused across frames
+let bandEdges = null;      // Int32Array of length BAND_COUNT+1, bin indices
+let spectrumTimer = null;
+
+// Deferred so createMediaElementSource runs once and only when we actually
+// need the graph. Also: AudioContext construction before a user gesture is
+// allowed on Electron, but entering running state requires resume() after a
+// play gesture — we hook that in the 'play' listener below.
+function ensureAnalyser() {
+  if (analyser) return;
+  const Ctx = window.AudioContext || window.webkitAudioContext;
+  ac = new Ctx();
+  const src = ac.createMediaElementSource(audio);
+  analyser = ac.createAnalyser();
+  analyser.fftSize = 512;                // → 256 frequency bins
+  analyser.smoothingTimeConstant = 0.78; // empirical — stable visuals w/o mud
+  src.connect(analyser);
+  // CRITICAL: createMediaElementSource rewires the element's default output;
+  // if this edge is missing, the user hears nothing the moment the graph
+  // activates. Keep it.
+  analyser.connect(ac.destination);
+  freqBuf = new Uint8Array(analyser.frequencyBinCount);
+  bandEdges = buildLogBandEdges(ac.sampleRate, analyser.frequencyBinCount);
+}
+
+// Compute once per AudioContext: log-spaced band boundaries as bin indices.
+// Even spacing crushes everything below ~300Hz into bin 0 and leaves the top
+// half of the strip empty — hearing and music are both log-frequency.
+function buildLogBandEdges(sampleRate, binCount) {
+  const nyquist = sampleRate / 2;
+  const edges = new Int32Array(BAND_COUNT + 1);
+  for (let i = 0; i <= BAND_COUNT; i++) {
+    const f = FMIN * Math.pow(FMAX / FMIN, i / BAND_COUNT);
+    let bin = Math.round((f / nyquist) * binCount);
+    if (bin < 0) bin = 0;
+    if (bin > binCount) bin = binCount;
+    edges[i] = bin;
+  }
+  // Ensure every band owns at least one bin (low bands can collide at small
+  // fftSize × high sampleRate); a zero-width band would always read 0.
+  for (let i = 1; i <= BAND_COUNT; i++) {
+    if (edges[i] <= edges[i - 1]) edges[i] = Math.min(edges[i - 1] + 1, binCount);
+  }
+  return edges;
+}
+
+function sampleSpectrum() {
+  if (!analyser || audio.paused) return;
+  analyser.getByteFrequencyData(freqBuf);
+  const bands = new Array(BAND_COUNT);
+  let sumSq = 0;
+  let totalN = 0;
+  for (let b = 0; b < BAND_COUNT; b++) {
+    const lo = bandEdges[b];
+    const hi = bandEdges[b + 1];
+    let acc = 0;
+    for (let j = lo; j < hi; j++) acc += freqBuf[j];
+    const mean = acc / Math.max(1, hi - lo);
+    // byte → [0,1] then sqrt: the raw byte distribution clusters around
+    // 20–80 during normal music; without the perceptual curve the top 2/3
+    // of the [0,1] range is dead and the consumer's visuals barely move.
+    const norm = Math.sqrt(mean / 255);
+    bands[b] = norm;
+    sumSq += mean * mean;
+    totalN += 1;
+  }
+  const rms = Math.sqrt(sumSq / Math.max(1, totalN)) / 255;
+  window.muse.sendSpectrum({ t: Date.now(), bands, rms });
+}
+
+function startSpectrumLoop() {
+  if (spectrumTimer) return;
+  spectrumTimer = setInterval(sampleSpectrum, Math.round(1000 / SAMPLE_HZ));
+}
+
+function stopSpectrumLoop() {
+  if (!spectrumTimer) return;
+  clearInterval(spectrumTimer);
+  spectrumTimer = null;
+}
+
+// Build the graph + resume the AudioContext from inside the play event —
+// 'play' fires synchronously off the user gesture that triggered audio.play(),
+// so autoplay policy is satisfied here even though playTrack itself is async.
+audio.addEventListener('play', () => {
+  try {
+    ensureAnalyser();
+    if (ac.state === 'suspended') ac.resume().catch(() => {});
+  } catch (e) {
+    console.warn('[player] analyser init failed', e);
+  }
+  startSpectrumLoop();
+});
+audio.addEventListener('pause', stopSpectrumLoop);
+audio.addEventListener('ended', stopSpectrumLoop);
