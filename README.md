@@ -182,7 +182,8 @@ GET http://127.0.0.1:10755/now
 ## 运行
 
 ```bash
-cd /Users/finn/Code/sideProject/muse
+git clone git@github.com:finns0309/muse.git
+cd muse
 npm install
 npm start
 ```
@@ -255,5 +256,5 @@ renderer/store.js
 
 ## 相关文档
 
-- [`../echo/README.md`](../echo/README.md)
-- [`./NOW_PLAYING.md`](./NOW_PLAYING.md)
+- [echo](https://github.com/finns0309/echo) —— 配套的悬浮歌词 / 视觉层
+- [`./NOW_PLAYING.md`](./NOW_PLAYING.md) —— 两个项目之间的 /now 协议
