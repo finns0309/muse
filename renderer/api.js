@@ -99,12 +99,16 @@ async function apiOnce(path, params, { timeout = DEFAULT_TIMEOUT_MS, signal } = 
   // NCM piggybacks status in `code`. 200 = ok, 301 / 401 = need re-auth,
   // others (400/500/...) are real errors. Some endpoints nest code under
   // .data, but the top-level field is the canonical signal.
+  // Exception: the QR-login endpoints repurpose 8xx as flow states
+  // (800 expired, 801 waiting, 802 scanned, 803 confirmed) — pass those
+  // through so auth.js can interpret them.
   const code = typeof j.code === 'number' ? j.code : 200;
+  const isQrFlow = path.startsWith('/login/qr/');
   if (code === 301 || code === 401) {
     for (const fn of authFailHandlers) { try { fn(); } catch {} }
     throw new ApiError(`NCM ${path} → 未登录或登录失效 (code ${code})`, { code, path });
   }
-  if (code >= 400) throw new ApiError(`NCM ${path} → code ${code}: ${j.message || ''}`, { code, path });
+  if (!isQrFlow && code >= 400) throw new ApiError(`NCM ${path} → code ${code}: ${j.message || ''}`, { code, path });
 
   return j;
 }
