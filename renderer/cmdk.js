@@ -136,13 +136,6 @@ const COMMAND_BUILDERS = [
       run: () => { inputEl.value = '/queue'; refresh(); return {}; },
     }];
   },
-  // Tabs
-  (q) => {
-    const tabs = [{ id: 'radio', label: 'radio' }, { id: 'library', label: 'library' }, { id: 'tape', label: 'tape' }];
-    return tabs
-      .filter((t) => commandMatches(q, ['go', 'goto', 'tab', 'view', t.label]))
-      .map((t) => ({ kind: 'tab', label: 'go to · ' + t.label, run: () => { actions.setTab(t.id); return { close: true }; } }));
-  },
   // Modes
   (q) => MODES
     .filter((m) => commandMatches(q, ['mode', 'radio', m.id, m.label, m.description || '']))

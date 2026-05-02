@@ -82,6 +82,9 @@ function reflectTabState() {
       if (e.key === 'ArrowRight') { e.preventDefault(); player.next(); return; }
       if (e.key === 'ArrowLeft')  { e.preventDefault(); player.prev(); return; }
       if (e.key.toLowerCase() === 'p') { e.preventDefault(); player.toggle(); return; }
+      if (e.key.toLowerCase() === 'r') { e.preventDefault(); actions.setTab('radio');   actions.closeCmdk(); return; }
+      if (e.key.toLowerCase() === 'l') { e.preventDefault(); actions.setTab('library'); actions.closeCmdk(); return; }
+      if (e.key.toLowerCase() === 't') { e.preventDefault(); actions.setTab('tape');    actions.closeCmdk(); return; }
     }
     const t = e.target;
     if (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable) return;
