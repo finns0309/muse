@@ -10,6 +10,7 @@ contextBridge.exposeInMainWorld('muse', {
   onOpenCommandSurface: (cb) => ipcRenderer.on('open-command-surface', () => cb()),
   hideWindow: () => ipcRenderer.invoke('hide-window'),
   resizeWindow: (w, h) => ipcRenderer.invoke('resize-window', w, h),
+  setWindowBg: (color) => ipcRenderer.invoke('set-window-bg', color),
   onWindowAppear: (cb) => ipcRenderer.on('window-appear', () => cb()),
   store: {
     get: (key, fallback) => ipcRenderer.invoke('store-get', key, fallback),

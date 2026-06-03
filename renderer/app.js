@@ -130,4 +130,7 @@ function applyAppearance(appearance) {
   const accent = /^#[0-9a-f]{6}$/i.test(appearance?.accent || '') ? appearance.accent : '#6eb5ff';
   document.body.dataset.scheme = scheme;
   document.body.style.setProperty('--muse-accent', accent);
+  // Keep the native window backgroundColor in sync so the panel's fade/resize
+  // never reveals a mismatched color behind it (the grey flash on summon).
+  window.muse.setWindowBg?.(scheme === 'light' ? '#f5f5f7' : '#1c1c1e');
 }

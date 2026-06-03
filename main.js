@@ -194,6 +194,12 @@ ipcMain.handle('hide-window', () => {
   if (win && !win.isDestroyed()) win.hide();
 });
 
+ipcMain.handle('set-window-bg', (_, color) => {
+  if (win && !win.isDestroyed() && /^#[0-9a-f]{6}$/i.test(color || '')) {
+    win.setBackgroundColor(color);
+  }
+});
+
 ipcMain.handle('resize-window', (_, w, h) => {
   if (!win || win.isDestroyed()) return;
   const [curW, curH] = win.getSize();
@@ -204,13 +210,23 @@ ipcMain.handle('resize-window', (_, w, h) => {
   win.setSize(w, h, false);
 });
 
+// The native window backgroundColor must match the panel's theme background —
+// otherwise the panel's fade-in/out (and any resize) reveals a mismatched
+// color at/through it (the "grey/black flash" on summon in light mode).
+function themeBg() {
+  try {
+    const scheme = store?.get('ui-prefs')?.appearance?.scheme;
+    return scheme === 'light' ? '#f5f5f7' : '#1c1c1e';
+  } catch { return '#1c1c1e'; }
+}
+
 function createWindow() {
   win = new BrowserWindow({
     width: 720,
     height: 405,
     minWidth: 520,
     minHeight: 120,
-    backgroundColor: '#1c1c1e',
+    backgroundColor: themeBg(),
     titleBarStyle: 'customButtonsOnHover',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
