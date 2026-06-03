@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<title>muse · daily (demo)</title>
+<link rel="stylesheet" href="_tokens.css">
+<style>
+  /* daily as "magazine spread" — direction B applied to one mode */
+  .stage { padding: 28px 30px 32px; }
+
+  .head {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 24px;
+    align-items: end;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--hairline);
+  }
+  .kicker {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.18em;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .h-date {
+    font-family: var(--serif);
+    font-weight: 500;
+    font-size: 56px;
+    line-height: 0.95;
+    color: var(--ink);
+    letter-spacing: -0.005em;
+  }
+  .h-date em {
+    font-style: italic;
+    color: var(--ink-soft);
+    font-weight: 400;
+  }
+  .h-sub {
+    font-size: 13px;
+    color: var(--ink-soft);
+    margin-top: 10px;
+    letter-spacing: 0.01em;
+  }
+  .h-stat {
+    text-align: right;
+    font-family: var(--mono);
+    font-size: 10.5px;
+    color: var(--ink-faint);
+    letter-spacing: 0.12em;
+    line-height: 1.7;
+  }
+  .h-stat b {
+    display: block;
+    font-family: var(--serif);
+    font-weight: 500;
+    font-size: 30px;
+    color: var(--ink);
+    letter-spacing: 0;
+  }
+
+  /* collage of today's covers */
+  .collage {
+    margin-top: 22px;
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr;
+    grid-template-rows: 110px 110px;
+    gap: 8px;
+    height: 228px;
+  }
+  .ct {
+    border-radius: 10px;
+    box-shadow:
+      0 1px 0 rgba(255,255,255,0.5) inset,
+      0 0 0 1px rgba(40,30,20,0.10),
+      0 8px 18px -10px rgba(40,30,20,0.35);
+    position: relative;
+    overflow: hidden;
+  }
+  .ct.big { grid-row: 1 / span 2; }
+  .ct.big .play {
+    position: absolute; inset: auto 14px 14px auto;
+    width: 38px; height: 38px; border-radius: 50%;
+    background: rgba(255,255,255,0.92);
+    color: var(--ink);
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 6px 14px -6px rgba(0,0,0,0.35);
+  }
+  .ct.big .label {
+    position: absolute; left: 14px; bottom: 14px;
+    color: #fff;
+    text-shadow: 0 1px 4px rgba(0,0,0,0.45);
+  }
+  .ct.big .label .t {
+    font-family: var(--serif);
+    font-size: 22px; font-weight: 600;
+    line-height: 1.1;
+  }
+  .ct.big .label .a {
+    font-size: 11px; opacity: 0.85; margin-top: 2px;
+  }
+
+  /* tracklist */
+  .tracks {
+    margin-top: 22px;
+    border-top: 1px solid var(--hairline);
+  }
+  .row {
+    display: grid;
+    grid-template-columns: 28px 1fr 1.1fr 56px 28px;
+    gap: 14px;
+    align-items: center;
+    padding: 11px 6px;
+    border-bottom: 1px solid var(--hairline);
+    cursor: pointer;
+  }
+  .row:hover { background: var(--wash); }
+  .row.now { background: var(--accent-wash); }
+  .row .idx {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-faint);
+    text-align: right;
+    letter-spacing: 0.06em;
+  }
+  .row.now .idx {
+    color: var(--accent);
+  }
+  .row .ttl {
+    font-family: var(--serif);
+    font-size: 17px;
+    font-weight: 500;
+    color: var(--ink);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .row .art {
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .row .dur {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-faint);
+    text-align: right;
+    letter-spacing: 0.04em;
+  }
+  .row .heart {
+    color: var(--ink-faint);
+    text-align: center;
+  }
+  .row .heart.liked { color: var(--accent); }
+  .row .heart svg { width: 13px; height: 13px; vertical-align: middle; }
+
+  .row .eq {
+    display: inline-flex; gap: 2px; align-items: end;
+    height: 12px; padding-left: 6px;
+  }
+  .row .eq i {
+    width: 2px; background: var(--accent); border-radius: 1px;
+    animation: eq 1.1s ease-in-out infinite;
+  }
+  .row .eq i:nth-child(1) { height: 60%; animation-delay: -.1s; }
+  .row .eq i:nth-child(2) { height: 100%; animation-delay: -.4s; }
+  .row .eq i:nth-child(3) { height: 40%; animation-delay: -.2s; }
+  @keyframes eq {
+    0%,100% { transform: scaleY(0.4); }
+    50%     { transform: scaleY(1); }
+  }
+</style>
+</head>
+<body>
+
+<div class="frame">
+  <div class="titlebar">
+    <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="title-tag">muse · daily</span>
+  </div>
+
+  <div class="stage">
+    <div class="head">
+      <div>
+        <div class="kicker">TODAY · 周日</div>
+        <div class="h-date">4<em>月</em>26<em>日</em></div>
+        <div class="h-sub">muse 为你挑了 18 首，混了 3 首昨日未完，及若干旧爱。</div>
+      </div>
+      <div class="h-stat">
+        <b>18</b>
+        TRACKS · 1H 12M
+      </div>
+    </div>
+
+    <!-- collage -->
+    <div class="collage">
+      <div class="ct big" style="background:linear-gradient(135deg,#d4a073,#7a4a32 70%,#2a1a14);">
+        <div class="label">
+          <div class="t">青さは止んだ</div>
+          <div class="a">ナナツカゼ</div>
+        </div>
+        <div class="play">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M6 4l14 8-14 8V4z"/></svg>
+        </div>
+      </div>
+      <div class="ct" style="background:linear-gradient(135deg,#a8b8c8,#4a5868);"></div>
+      <div class="ct" style="background:linear-gradient(135deg,#c89a82,#7a4a3a);"></div>
+      <div class="ct" style="background:linear-gradient(135deg,#9c8aa8,#3a2c52);"></div>
+      <div class="ct" style="background:linear-gradient(135deg,#d4c082,#7a6a2c);"></div>
+    </div>
+
+    <!-- tracks -->
+    <div class="tracks">
+      <div class="row now">
+        <span class="idx">01</span>
+        <span class="ttl">青さは止んだ</span>
+        <span class="art">ナナツカゼ</span>
+        <span class="dur">3:18</span>
+        <span class="eq"><i></i><i></i><i></i></span>
+      </div>
+      <div class="row">
+        <span class="idx">02</span>
+        <span class="ttl">What If I</span>
+        <span class="art">Ailee</span>
+        <span class="dur">3:45</span>
+        <span class="heart liked"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 21s-7.5-4.6-9.6-9.3C.7 7.6 4 4 7.6 4c2 0 3.5 1 4.4 2.5C12.9 5 14.4 4 16.4 4 20 4 23.3 7.6 21.6 11.7 19.5 16.4 12 21 12 21z"/></svg></span>
+      </div>
+      <div class="row">
+        <span class="idx">03</span>
+        <span class="ttl">Bell flower</span>
+        <span class="art">z²</span>
+        <span class="dur">3:30</span>
+        <span class="heart"></span>
+      </div>
+      <div class="row">
+        <span class="idx">04</span>
+        <span class="ttl">Starship Syncopation</span>
+        <span class="art">Cory Wong, Metropole Orkest</span>
+        <span class="dur">3:50</span>
+        <span class="heart"></span>
+      </div>
+      <div class="row">
+        <span class="idx">05</span>
+        <span class="ttl">さんかくゲーム</span>
+        <span class="art">『ユイカ』</span>
+        <span class="dur">3:37</span>
+        <span class="heart liked"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 21s-7.5-4.6-9.6-9.3C.7 7.6 4 4 7.6 4c2 0 3.5 1 4.4 2.5C12.9 5 14.4 4 16.4 4 20 4 23.3 7.6 21.6 11.7 19.5 16.4 12 21 12 21z"/></svg></span>
+      </div>
+      <div class="row">
+        <span class="idx">06</span>
+        <span class="ttl">パズル</span>
+        <span class="art">幾田りら</span>
+        <span class="dur">3:16</span>
+        <span class="heart"></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="_picker.js"></script>
+<script>mountPicker('#c6a15b');</script>
+</body>
+</html>

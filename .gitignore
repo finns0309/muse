@@ -3,3 +3,13 @@ node_modules/
 *.log
 .vscode/
 .idea/
+
+# build output
+dist/
+icon.iconset/
+
+# transient icon-exploration scratch (gallery HTMLs, not source)
+icon-concepts/
+
+# personal data export
+scripts/library.xlsx

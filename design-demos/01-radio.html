@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<title>muse · radio (demo)</title>
+<link rel="stylesheet" href="_tokens.css">
+<style>
+  /* ---------- now-playing card ---------- */
+  .stage { padding: 22px 26px 28px; }
+
+  .now {
+    display: grid;
+    grid-template-columns: 56px 1fr auto;
+    gap: 16px;
+    align-items: center;
+    padding: 14px 16px;
+    background: var(--paper-3);
+    border: 1px solid var(--hairline);
+    border-radius: var(--r-md);
+    box-shadow:
+      0 1px 0 rgba(255,255,255,0.7) inset,
+      0 1px 2px rgba(40,30,20,0.04);
+  }
+  .cover {
+    width: 56px; height: 56px; border-radius: 8px;
+    background:
+      linear-gradient(135deg, #d3c5a5, #a89572 60%, #6e5e4a);
+    box-shadow:
+      0 1px 0 rgba(255,255,255,0.4) inset,
+      0 0 0 1px rgba(40,30,20,0.10),
+      0 6px 14px -8px rgba(40,30,20,0.45);
+  }
+  .now-meta { min-width: 0; }
+  .now-title {
+    font-family: var(--serif);
+    font-size: 22px;
+    font-weight: 600;
+    letter-spacing: 0.005em;
+    color: var(--ink);
+    line-height: 1.15;
+    margin: 0 0 3px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .now-artist {
+    font-size: 12px;
+    color: var(--ink-soft);
+    letter-spacing: 0.02em;
+  }
+  .progress {
+    grid-column: 1 / -1;
+    height: 2px;
+    background: var(--hairline);
+    border-radius: 2px;
+    margin-top: 6px;
+    overflow: hidden;
+  }
+  .progress > i {
+    display: block;
+    height: 100%;
+    width: 62%;
+    background: var(--accent);
+    border-radius: 2px;
+  }
+  .now-actions {
+    display: flex; align-items: center; gap: 4px;
+    color: var(--ink-soft);
+  }
+  .pill {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 4px 9px;
+    border-radius: 999px;
+    background: var(--wash);
+    font-family: var(--mono);
+    font-size: 10.5px;
+    color: var(--ink-soft);
+    letter-spacing: 0.06em;
+  }
+  .pill .pulse {
+    width: 5px; height: 5px; border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+  .ibtn {
+    width: 30px; height: 30px;
+    display: inline-flex; align-items: center; justify-content: center;
+    border: none; background: transparent;
+    color: var(--ink-soft); cursor: pointer;
+    border-radius: 8px;
+  }
+  .ibtn:hover { background: var(--wash); color: var(--ink); }
+  .ibtn.heart.liked { color: var(--accent); }
+  .ibtn svg { width: 18px; height: 18px; }
+
+  /* ---------- mode list ---------- */
+  .modes {
+    margin-top: 18px;
+    border: 1px solid var(--hairline);
+    border-radius: var(--r-md);
+    background: var(--paper-2);
+    overflow: hidden;
+  }
+  .mode {
+    position: relative;
+    display: grid;
+    grid-template-columns: 22px 1fr auto;
+    gap: 16px;
+    align-items: baseline;
+    padding: 16px 22px 16px 26px;
+    cursor: pointer;
+  }
+  .mode + .mode {
+    border-top: 1px solid var(--hairline);
+  }
+  .mode .marker {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--mode-color, var(--ink-faint));
+    align-self: center;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--mode-color, var(--ink-faint)) 14%, transparent);
+  }
+  .mode .name {
+    font-family: var(--serif);
+    font-size: 22px;
+    font-weight: 500;
+    color: var(--ink);
+    line-height: 1;
+  }
+  .mode .desc {
+    display: block;
+    margin-top: 4px;
+    font-size: 12px;
+    color: var(--ink-soft);
+    letter-spacing: 0.01em;
+  }
+  .mode .shortcut {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    color: var(--ink-faint);
+    letter-spacing: 0.1em;
+    align-self: center;
+  }
+  .mode:hover { background: var(--wash); }
+  .mode.active {
+    background: var(--accent-wash);
+  }
+  .mode.active::before {
+    content: "";
+    position: absolute;
+    left: 0; top: 12px; bottom: 12px;
+    width: 2px;
+    background: var(--accent);
+    border-radius: 0 2px 2px 0;
+  }
+  .mode.active .name { color: var(--ink); }
+  .mode.active .shortcut { color: var(--accent); }
+
+  /* mode hue stripe — semantic color (direction C) */
+  .mode[data-hue="teal"]   { --mode-color: #5fb3a3; }
+  .mode[data-hue="gold"]   { --mode-color: #c6a15b; }
+  .mode[data-hue="rose"]   { --mode-color: #c87d8a; }
+  .mode[data-hue="indigo"] { --mode-color: #6f7fa8; }
+  .mode[data-hue="sage"]   { --mode-color: #8fa872; }
+  .mode[data-hue="clay"]   { --mode-color: #c8775a; }
+  .mode[data-hue="dusk"]   { --mode-color: #9d8cb5; }
+
+  .footer-hint {
+    margin-top: 14px;
+    text-align: right;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--ink-faint);
+    letter-spacing: 0.12em;
+  }
+</style>
+</head>
+<body>
+
+<div class="frame">
+  <div class="titlebar">
+    <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="title-tag">muse · radio</span>
+  </div>
+
+  <div class="stage">
+    <!-- now playing -->
+    <div class="now">
+      <div class="cover" style="background-image:linear-gradient(135deg,#e0c79b,#9c7e58 55%,#3f3325);"></div>
+      <div class="now-meta">
+        <div class="now-title">MONTAGEM SAKURA</div>
+        <div class="now-artist">SVNO</div>
+      </div>
+      <div class="now-actions">
+        <span class="pill"><span class="pulse"></span>QUEUE · 1</span>
+        <button class="ibtn" title="next">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4l10 8-10 8V4z"/><path d="M19 5v14"/></svg>
+        </button>
+        <button class="ibtn heart liked" title="红心">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 21s-7.5-4.6-9.6-9.3C.7 7.6 4 4 7.6 4c2 0 3.5 1 4.4 2.5C12.9 5 14.4 4 16.4 4 20 4 23.3 7.6 21.6 11.7 19.5 16.4 12 21 12 21z"/></svg>
+        </button>
+      </div>
+      <div class="progress"><i></i></div>
+    </div>
+
+    <!-- modes -->
+    <div class="modes">
+      <div class="mode" data-hue="teal">
+        <span class="marker"></span>
+        <div>
+          <div class="name">all</div>
+          <span class="desc">everything, shuffled</span>
+        </div>
+        <span class="shortcut">⌘ 1</span>
+      </div>
+      <div class="mode" data-hue="gold">
+        <span class="marker"></span>
+        <div>
+          <div class="name">daily</div>
+          <span class="desc">a mix for today</span>
+        </div>
+        <span class="shortcut">⌘ 2</span>
+      </div>
+      <div class="mode" data-hue="rose">
+        <span class="marker"></span>
+        <div>
+          <div class="name">discover</div>
+          <span class="desc">fresh picks from NetEase</span>
+        </div>
+        <span class="shortcut">⌘ 3</span>
+      </div>
+      <div class="mode" data-hue="clay">
+        <span class="marker"></span>
+        <div>
+          <div class="name">dig up</div>
+          <span class="desc">long forgotten</span>
+        </div>
+        <span class="shortcut">⌘ 4</span>
+      </div>
+      <div class="mode" data-hue="indigo">
+        <span class="marker"></span>
+        <div>
+          <div class="name">immersive</div>
+          <span class="desc">one artist, deep</span>
+        </div>
+        <span class="shortcut">⌘ 5</span>
+      </div>
+      <div class="mode active" data-hue="sage">
+        <span class="marker"></span>
+        <div>
+          <div class="name">similar</div>
+          <span class="desc">more like what you're playing</span>
+        </div>
+        <span class="shortcut">⌘ 6</span>
+      </div>
+      <div class="mode" data-hue="dusk">
+        <span class="marker"></span>
+        <div>
+          <div class="name">single</div>
+          <span class="desc">loop this one</span>
+        </div>
+        <span class="shortcut">⌘ 7</span>
+      </div>
+    </div>
+
+    <div class="footer-hint">↑↓ NAVIGATE · ↵ PLAY · ⌘K COMMAND</div>
+  </div>
+</div>
+
+<script src="_picker.js"></script>
+<script>mountPicker('#5fb3a3');</script>
+</body>
+</html>

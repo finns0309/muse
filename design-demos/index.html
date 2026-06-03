@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<title>muse · UI demos</title>
+<link rel="stylesheet" href="_tokens.css">
+<style>
+  .wrap { max-width: 720px; margin: 60px auto; padding: 0 28px; }
+  h1 { font-family: var(--serif); font-weight: 500; font-size: 44px; margin: 0 0 6px; }
+  .sub { color: var(--ink-soft); font-size: 14px; margin-bottom: 32px; }
+  .card {
+    display: block;
+    padding: 18px 22px;
+    margin-bottom: 12px;
+    background: var(--paper-3);
+    border: 1px solid var(--hairline);
+    border-radius: var(--r-md);
+    text-decoration: none;
+    color: var(--ink);
+    transition: transform 0.12s ease, box-shadow 0.12s ease;
+    box-shadow: 0 1px 0 rgba(255,255,255,0.7) inset;
+  }
+  .card:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 1px 0 rgba(255,255,255,0.7) inset, 0 12px 24px -16px rgba(40,30,20,0.4);
+  }
+  .card .n { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); letter-spacing: 0.16em; }
+  .card .t { font-family: var(--serif); font-size: 22px; font-weight: 500; margin-top: 4px; }
+  .card .d { font-size: 12.5px; color: var(--ink-soft); margin-top: 4px; }
+
+  .note {
+    margin-top: 36px;
+    padding: 18px 22px;
+    background: transparent;
+    border-left: 2px solid var(--ink-faint);
+    color: var(--ink-soft);
+    font-size: 13px;
+    line-height: 1.6;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>muse · UI demos</h1>
+  <div class="sub">三个独立草案，对应 radio / daily / library。右上角可切 accent。</div>
+
+  <a class="card" href="A-radio-jukebox.html">
+    <div class="n">A · JUKEBOX</div>
+    <div class="t">radio · hero now-playing + channel buttons</div>
+    <div class="d">大封面/大标题占一半屏；7 个 mode 变成底部一排粗按钮，每个显示当前装的是什么。重交互高密度。</div>
+  </a>
+  <a class="card" href="B-radio-dual.html">
+    <div class="n">B · DUAL</div>
+    <div class="t">radio · mode rail + queue preview</div>
+    <div class="d">左侧窄栏列 mode；右侧 now-playing + 接下来 5 首。<b>悬停 mode 可预览该频道队列</b>，按 ↵ 才真正切歌。</div>
+  </a>
+
+  <div class="sub" style="margin: 28px 0 14px; color: var(--ink-faint); font-family: var(--mono); font-size: 10.5px; letter-spacing:0.16em;">EARLIER · RESKIN ATTEMPTS</div>
+
+  <a class="card" href="01-radio.html">
+    <div class="n">01 · MOST USED</div>
+    <div class="t">radio</div>
+    <div class="d">直接打磨当前形态：去掉 01-07 编号，改用 mode-color 圆点；标题上 serif；hairline 与 paper 质感。</div>
+  </a>
+  <a class="card" href="02-daily.html">
+    <div class="n">02 · MODE IDENTITY</div>
+    <div class="t">daily</div>
+    <div class="d">把 mode 做成"杂志页"的尝试——大日期 + 今日封面拼贴 + 列表，证明每个 mode 可以有自己的视觉身份。</div>
+  </a>
+  <a class="card" href="03-library.html">
+    <div class="n">03 · SEMANTIC COLOR</div>
+    <div class="t">library</div>
+    <div class="d">把 tape 的"彩色 dot"语义外推：每行左边一个 source dot（heart/radio/discover/dig），日期标题斜体 serif。</div>
+  </a>
+
+  <div class="note">
+    三个 demo 共享 <code>_tokens.css</code>，accent 通过 <code>_picker.js</code> 动态切换。
+    没有改动任何渲染层代码，仅作为方向草案。
+  </div>
+</div>
+</body>
+</html>

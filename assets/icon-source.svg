@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  muse app icon — source for Figma. (Geometry = concept "B", group-centered:
+  the chevron + dot bounding box is centered on the 1024 canvas.)
+
+  Layers:
+    • bg      — light squircle background (full-bleed; macOS rounds the corners)
+    • chevron — the ❯ mark
+    • dot      — the blue accent
+
+  Tweak chevron / dot to taste, then export the 1024×1024 frame as PNG →
+  save as assets/icon.png. Keep bg full-bleed (no rounded corners).
+-->
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fbfbfd"/>
+      <stop offset="1" stop-color="#e9e9ee"/>
+    </linearGradient>
+  </defs>
+
+  <rect id="bg" width="1024" height="1024" fill="url(#bgGrad)"/>
+
+  <path id="chevron"
+        d="M361 320 L566 512 L361 704"
+        fill="none" stroke="#1c1c1e" stroke-width="70"
+        stroke-linecap="round" stroke-linejoin="round"/>
+
+  <circle id="dot" cx="656" cy="512" r="42" fill="#6eb5ff"/>
+</svg>

@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, ipcMain, dialog, globalShortcut, nativeImage } = require('electron');
+const { app, BrowserWindow, Menu, Tray, ipcMain, dialog, globalShortcut, nativeImage } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const http = require('http');
@@ -13,6 +13,9 @@ const { Store } = require('./lib/store');
 app.setName('Muse');
 
 const ICON_PATH = path.join(__dirname, 'assets', 'icon.png');
+const TRAY_PATH = path.join(__dirname, 'assets', 'trayTemplate.png');
+
+let tray = null;  // menu-bar entry (the only visible UI when dock is hidden)
 
 // Local NCM API (the reverse-engineered HTTP wrapper YesPlayMusic also uses).
 const NCM_PORT = 10754;
@@ -195,9 +198,10 @@ ipcMain.handle('resize-window', (_, w, h) => {
   if (!win || win.isDestroyed()) return;
   const [curW, curH] = win.getSize();
   if (curW === w && curH === h) return;
-  // Animate by setting size — Electron doesn't natively animate, but the
-  // content CSS transitions cover the visual part. We just snap the frame.
-  win.setSize(w, h, true);
+  // animate=false: the native resize tween would briefly expose the window's
+  // background color at the growing edge (the "black strip" on summon). The
+  // content's own CSS transitions carry the visual, so snap the frame.
+  win.setSize(w, h, false);
 });
 
 function createWindow() {
@@ -215,6 +219,14 @@ function createWindow() {
     },
   });
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
+
+  // Closing the window (red traffic light, ⌘W) hides it instead of destroying
+  // it — playback + state live in the renderer, so we keep it alive in the
+  // background. Option+Space brings it back instantly. Real quit goes through
+  // app.isQuitting (tray "Quit" / ⌘Q).
+  win.on('close', (e) => {
+    if (!app.isQuitting) { e.preventDefault(); win.hide(); }
+  });
 }
 
 function showCommandSurface() {
@@ -264,19 +276,27 @@ function installAppMenu() {
   ]));
 }
 
+function buildTray() {
+  try {
+    const img = nativeImage.createFromPath(TRAY_PATH);
+    img.setTemplateImage(true);   // macOS tints for light/dark menu bar
+    tray = new Tray(img);
+    tray.setToolTip('muse');
+    tray.setContextMenu(Menu.buildFromTemplate([
+      { label: 'Show muse', accelerator: 'Alt+Space', click: showCommandSurface },
+      { type: 'separator' },
+      { label: 'Quit muse', accelerator: 'Command+Q', click: () => { app.isQuitting = true; app.quit(); } },
+    ]));
+    // Left-click the tray icon → summon (right-click shows the menu).
+    tray.on('click', showCommandSurface);
+  } catch (e) { console.warn('[muse] tray init failed', e?.message || e); }
+}
+
 app.whenReady().then(async () => {
   installAppMenu();
-  if (process.platform === 'darwin' && app.dock) {
-    // Dock icon image. Note: the dock's hover-label ("Muse" vs "Electron")
-    // is driven by the bundle's Info.plist and only updates when you build
-    // a real .app (electron-packager / electron-builder picks it up from
-    // `productName` in package.json). In `npm start` dev mode the hover
-    // label stays "Electron", but the icon image below does update.
-    try {
-      const img = nativeImage.createFromPath(ICON_PATH);
-      if (!img.isEmpty()) app.dock.setIcon(img);
-    } catch (e) { console.warn('[muse] dock icon failed', e?.message || e); }
-  }
+  // Hide from the dock — muse lives in the menu bar + Option+Space, like
+  // Raycast. The Tray (built below) is the only persistent visible entry.
+  if (process.platform === 'darwin' && app.dock) app.dock.hide();
 
   if (await detectExistingMuse()) {
     dialog.showMessageBoxSync({
@@ -305,6 +325,7 @@ app.whenReady().then(async () => {
     return;
   }
   createWindow();
+  buildTray();
   registerShortcuts();
 });
 
@@ -315,7 +336,7 @@ app.on('activate', () => {
 
 // Flush any pending store writes before exit. Synchronous by design so the
 // process doesn't terminate before bytes hit disk.
-app.on('before-quit', () => { try { store?.flush(); } catch {} });
+app.on('before-quit', () => { app.isQuitting = true; try { store?.flush(); } catch {} });
 app.on('will-quit',   () => { try { globalShortcut.unregisterAll(); } catch {}; try { store?.flush(); } catch {}; try { spectrumWss?.close(); } catch {}; try { nowServer?.close(); } catch {} });
 
 app.on('window-all-closed', () => {
