@@ -61,14 +61,12 @@ export const store = new Store({
   // Auth / identity
   user: null,                      // { uid, nickname, avatarUrl } once logged in
 
-  // Top-level navigation.
-  tab: 'radio',                    // 'radio' | 'library' | 'tape'
-
-  // Active radio mode id. Modes are registered in ./modes/index.js; adding
+  // Active mode id. Modes are registered in ./modes/index.js; adding
   // a mode does NOT require touching this default (it just becomes a valid
   // value). On first launch we fall back to 'all'.
   mode: 'all',
   modeRun: 0,                      // increments when re-running the active mode
+  playbackSession: null,           // { kind, label, modeId?, seedTrackId?, playlistId? }
 
   // Local library mirror. Hydrated from NCM (the user's 我喜欢 playlist) and
   // extended every time a track is played. See lib/library.js.
@@ -79,10 +77,6 @@ export const store = new Store({
     loading: false,
     error: null,
   },
-
-  // Library-tab filter. Parsed lazily by the view; we only store the raw text
-  // so filter changes don't trigger persistence.
-  filter: '',
 
   // Player state. The audio element in player.js is the source of truth;
   // it pushes updates here ~4Hz. UI reads from here.
@@ -102,19 +96,13 @@ export const store = new Store({
   // value so it can be changed from cmdk with `/accent #d8b35f`.
   appearance: {
     scheme: 'dark',                 // 'dark' | 'light'
-    accent: '#c6a15b',
+    accent: '#6eb5ff',
   },
 });
 
 // ---- High-level actions ----------------------------------------------------
 
 export const actions = {
-  setTab(tab) {
-    if (tab !== 'radio' && tab !== 'library' && tab !== 'tape') throw new TypeError('setTab: "radio"|"library"|"tape"');
-    if (store.get().tab === tab) return;
-    store.set({ tab });
-  },
-
   setMode(id) {
     if (typeof id !== 'string' || !id) throw new TypeError('setMode: id must be non-empty string');
     if (store.get().mode === id) {
@@ -122,12 +110,6 @@ export const actions = {
       return;
     }
     store.set({ mode: id });
-  },
-
-  setFilter(text) {
-    if (typeof text !== 'string') text = '';
-    if (store.get().filter === text) return;
-    store.set({ filter: text });
   },
 
   openCmdk()  { if (!store.get().cmdkOpen) store.set({ cmdkOpen: true }); },
@@ -149,14 +131,14 @@ export const actions = {
 
 // Persist a small slice of UI state. Debounced + keyed on a string signature so
 // player ticks don't trigger a save cycle. Only the fields that should survive
-// a relaunch go in here — mode/tab. Library persistence lives in lib/library.js.
+// a relaunch go in here — mode + appearance. Library persistence lives in lib/library.js.
 let saveTimer;
 store.selectKey(
-  (s) => `${s.tab}|${s.mode}|${s.appearance.scheme}|${s.appearance.accent}`,
+  (s) => `${s.mode}|${s.appearance.scheme}|${s.appearance.accent}`,
   (s) => {
     clearTimeout(saveTimer);
     saveTimer = setTimeout(() => {
-      window.muse.store.set('ui-prefs', { tab: s.tab, mode: s.mode, appearance: s.appearance })
+      window.muse.store.set('ui-prefs', { mode: s.mode, appearance: s.appearance })
         .catch((e) => console.warn('[store] persist ui-prefs failed', e));
     }, 300);
   }

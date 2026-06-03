@@ -42,13 +42,13 @@ async function runQrFlow(pane) {
   const img = pane.querySelector('[data-role=qr-img]');
 
   while (true) {
-    status.textContent = '生成二维码中…';
+    status.textContent = 'generating QR code…';
     const k = await api('/login/qr/key');
     const key = k?.data?.unikey;
-    if (!key) { status.textContent = '获取 key 失败，重试中…'; await sleep(2000); continue; }
+    if (!key) { status.textContent = 'key failed, retrying…'; await sleep(2000); continue; }
     const q = await api('/login/qr/create', { key, qrimg: true });
     img.src = q?.data?.qrimg || '';
-    status.textContent = '请用网易云手机 App 扫描';
+    status.textContent = 'scan with NetEase Cloud Music app';
 
     const result = await pollQr(key, status);
     if (result.code === 803) {
@@ -66,9 +66,9 @@ async function runQrFlow(pane) {
 async function pollQr(key, status) {
   while (true) {
     const r = await api('/login/qr/check', { key });
-    if (r.code === 800) { status.textContent = '二维码过期，重新生成…'; return r; }
-    if (r.code === 801) { status.textContent = '等待扫码…'; await sleep(1500); continue; }
-    if (r.code === 802) { status.textContent = '扫码成功，请在手机上确认'; await sleep(1500); continue; }
+    if (r.code === 800) { status.textContent = 'QR expired, regenerating…'; return r; }
+    if (r.code === 801) { status.textContent = 'waiting for scan…'; await sleep(1500); continue; }
+    if (r.code === 802) { status.textContent = 'scanned — confirm on your phone'; await sleep(1500); continue; }
     if (r.code === 803) { return r; }
     await sleep(2000);
   }

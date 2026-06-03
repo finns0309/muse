@@ -197,7 +197,7 @@ async function fetchLikedPlaylist() {
 
   const pls = await api('/user/playlist', { uid, limit: 1 });
   const liked = pls?.playlist?.[0];
-  if (!liked?.id) throw new Error('could not find 我喜欢 playlist');
+  if (!liked?.id) throw new Error('could not find liked playlist');
   const likedPlaylistId = liked.id;
 
   // Full playlist detail gives us the trackIds[] + the `at` timestamps we

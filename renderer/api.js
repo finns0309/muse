@@ -106,7 +106,7 @@ async function apiOnce(path, params, { timeout = DEFAULT_TIMEOUT_MS, signal } = 
   const isQrFlow = path.startsWith('/login/qr/');
   if (code === 301 || code === 401) {
     for (const fn of authFailHandlers) { try { fn(); } catch {} }
-    throw new ApiError(`NCM ${path} → 未登录或登录失效 (code ${code})`, { code, path });
+    throw new ApiError(`NCM ${path} → not logged in (code ${code})`, { code, path });
   }
   if (!isQrFlow && code >= 400) throw new ApiError(`NCM ${path} → code ${code}: ${j.message || ''}`, { code, path });
 

@@ -1,6 +1,6 @@
 // Mode registry. Adding a new mode = create a sibling file that default-exports
 // a mode object, then add one line of import + one entry in MODES below.
-// Nothing else needs to change: the radio tab renders from this array.
+// Nothing else needs to change: command entries render from this array.
 //
 // Mode contract (see ./all.js for the simplest example):
 //   {

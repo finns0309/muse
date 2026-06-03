@@ -1,6 +1,6 @@
 // "discover" — NetEase personalized recommendations. Uses /recommend/songs
 // (daily personalized, requires login cookie, matches the user's long-term
-// taste). Falls back to an empty queue on error; radio.js surfaces that.
+// taste). Falls back to an empty queue on error; the mode runner logs that.
 
 import { api } from '../api.js';
 import { shuffle } from './_util.js';
@@ -15,14 +15,11 @@ export default {
     try { r = await api('/recommend/songs'); }
     catch (e) {
       console.warn('[discover] /recommend/songs failed', e.message);
-      // Surface to the user via radio.js — the empty-queue path reads
-      // `error` and shows it in the status line. Without this the UI was
-      // indistinguishable from "mode selected, nothing happened".
-      return { queue: [], error: 'NetEase 推荐暂不可用' };
+      return { queue: [], error: 'NetEase recommendations unavailable' };
     }
 
     const daily = r?.data?.dailySongs || [];
-    if (!daily.length) return { queue: [], error: 'NetEase 今日暂无推荐' };
+    if (!daily.length) return { queue: [], error: 'no recommendations today' };
 
     // Normalize into the Track shape the player expects, but DON'T add these
     // to the local library — discover songs are ephemeral recommendations,

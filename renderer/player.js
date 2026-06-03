@@ -5,13 +5,14 @@
 
 import { store } from './store.js';
 import { api, ApiError } from './api.js';
+import { extendQueueForCurrentSession, shouldLoopQueueAtEnd } from './modes/session.js';
 
 const audio = new Audio();
 audio.preload = 'auto';
 
-// When queue runs out: loop to first. Modes that want single-track loop flip
-// `audio.loop = true` via setLoop() — the 'ended' event never fires in that case.
-let queueLoop = true;
+// Legacy escape hatch. Normal end-of-queue behavior is session-driven: modes
+// extend, playlists repeat, manual one-offs stop.
+let queueLoop = false;
 
 // ---- Public actions ---------------------------------------------------------
 
@@ -49,7 +50,7 @@ export async function playTrack(track, queue = null, queueIdx = -1) {
 
   if (!url) {
     store.set((s) => ({ ...s, player: prevSnapshot }));
-    throw new ApiError('无版权或获取失败', { path: '/song/url/v1' });
+    throw new ApiError('unavailable or no license', { path: '/song/url/v1' });
   }
 
   audio.src = url;
@@ -67,7 +68,7 @@ export function setQueue(tracks, { startIdx = 0 } = {}) {
   // Clear single-loop carryover. Without this, leaving 'single' mode by
   // picking a song in cmdk would silently inherit audio.loop=true and the
   // new song would repeat forever. Modes that want loop call setLoop(true)
-  // AFTER setQueue (see radio.js activate()); audio.loop is a persistent
+  // AFTER setQueue (see app.js activateMode()); audio.loop is a persistent
   // property on the element, so re-enabling it right after still takes
   // effect on the track that setQueue just started playing.
   audio.loop = false;
@@ -109,8 +110,8 @@ export function next() {
   if (!queue.length) return;
   if (queueIdx + 1 < queue.length) {
     playFromQueue(queue, queueIdx + 1, 1, { allowLoop: false }).catch(swallowExpected);
-  } else if (queueLoop) {
-    playFromQueue(queue, 0, 1, { allowLoop: true }).catch(swallowExpected);
+  } else {
+    playNextFromSession(queue).catch(swallowExpected);
   }
 }
 
@@ -127,6 +128,20 @@ export function playAt(idx) {
   const { queue } = store.get().player;
   if (!queue.length || idx < 0 || idx >= queue.length) return;
   playFromQueue(queue, idx, 1, { allowLoop: false }).catch(swallowExpected);
+}
+
+async function playNextFromSession(queue) {
+  const extra = await extendQueueForCurrentSession();
+  if (extra.length) {
+    const nextQueue = [...queue, ...extra];
+    store.set((s) => ({ ...s, player: { ...s.player, queue: nextQueue } }));
+    return playFromQueue(nextQueue, queue.length, 1, { allowLoop: false });
+  }
+  if (queueLoop || shouldLoopQueueAtEnd()) {
+    return playFromQueue(queue, 0, 1, { allowLoop: true });
+  }
+  patch({ playing: false, currentTime: audio.currentTime || audio.duration || 0 });
+  pushPlayerState();
 }
 
 async function playFromQueue(queue, startIdx, step, { allowLoop }) {

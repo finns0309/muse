@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src https://* http://* data:; connect-src http://127.0.0.1:* https://*; media-src https://* http://* blob:; style-src 'self' 'unsafe-inline';">
@@ -10,23 +10,13 @@
 
 <!-- Login pane: full-screen overlay until auth completes. -->
 <section id="loginPane" class="login-pane hidden">
-  <h2>扫码登录</h2>
-  <p class="muted">用网易云手机 App 扫描二维码</p>
+  <h2>scan to login</h2>
+  <p class="muted">scan with the NetEase Cloud Music app</p>
   <img data-role="qr-img" alt="QR">
   <div data-role="qr-status" class="muted"></div>
 </section>
 
-<!-- Shell. Header was removed — window is drag-region-free except for the
-     drag-strip pseudo-element defined in style.css. Tabs swap via body[data-tab]. -->
-<div id="shell" class="shell hidden">
-  <main id="tabpane" class="tabpane">
-    <section id="radio" class="tab tab-radio"></section>
-    <section id="library" class="tab tab-library"></section>
-    <section id="tape" class="tab tab-tape"></section>
-  </main>
-</div>
-
-<!-- Command palette: always mounted, toggled via cmdk.open/close -->
+<!-- Command palette — the sole UI surface. -->
 <div id="cmdk" class="cmdk"></div>
 
 <script type="module" src="app.js"></script>

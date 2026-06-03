@@ -1,40 +1,8 @@
-/* muse — quiet command surface.
-   Appearance is intentionally small: dark/light scheme plus one configurable
-   accent color. echo owns the atmospheric visual layer. */
+/* muse — Spotlight-style command surface for NetEase Cloud Music. */
 
-:root {
-  /* surfaces */
-  --bg:          #0e0a1a;
-  --bg-raised:   #1b1430;
-  --bg-overlay:  rgba(14, 10, 26, 0.55);
-  /* ink */
-  --fg:          #fff1e6;
-  --fg-muted:    #a89db3;
-  --fg-dim:      #564a6b;
-  /* separators */
-  --line:        rgba(255, 210, 180, 0.07);
-  --line-strong: rgba(255, 78, 142, 0.35);
-  /* accents */
-  --accent:      #ff4e8e;
-  --accent-2:    #38e8d3;
-  --accent-3:    #ffb86b;
-  --accent-grad: linear-gradient(135deg, #ff4e8e 0%, #ffb86b 45%, #38e8d3 100%);
-  /* hover tints */
-  --hover-bg:    rgba(255, 255, 255, 0.05);
-  --hover-bg-strong: rgba(255, 255, 255, 0.09);
-  /* semantic shapes */
-  --radius-sm: 4px;
-  --radius-md: 10px;
-  --radius-lg: 18px;
-  /* fonts */
-  --font-display: "Cormorant Garamond", "Cormorant", "Didot", "Georgia", serif;
-  --font-body: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter",
-               "Helvetica Neue", Arial, sans-serif;
-  /* shadow language */
-  --shadow-pop: 0 18px 48px -14px rgba(0, 0, 0, 0.75);
-  --shadow-soft: 0 6px 20px -6px rgba(0, 0, 0, 0.55);
-}
-
+/* ======================================================================== */
+/*  §RESET + GLOBALS                                                        */
+/* ======================================================================== */
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 html, body {
@@ -58,9 +26,8 @@ input  { font: inherit; color: inherit; background: none; border: none; outline:
 .hidden { display: none !important; }
 
 /* ======================================================================== */
-/* Login pane                                                                 */
+/*  §LOGIN                                                                   */
 /* ======================================================================== */
-
 .login-pane {
   position: fixed; inset: 0;
   display: flex;
@@ -75,1258 +42,293 @@ input  { font: inherit; color: inherit; background: none; border: none; outline:
 .login-pane img { width: 220px; height: 220px; background: #fff; padding: 8px; border-radius: 6px; }
 
 /* ======================================================================== */
-/* Shell                                                                      */
+/*  §TOKENS — dark (default) + light scheme                                  */
 /* ======================================================================== */
-
-.shell {
-  position: relative;
-  height: 100vh;
-  display: grid;
-  grid-template-rows: 1fr;
+body {
+  --bg: #1c1c1e;
+  --bg-raised: rgba(255, 255, 255, 0.06);
+  --bg-overlay: rgba(28, 28, 30, 0.82);
+  --fg: rgba(255, 255, 255, 0.92);
+  --fg-muted: rgba(255, 255, 255, 0.50);
+  --fg-dim: rgba(255, 255, 255, 0.28);
+  --line: rgba(255, 255, 255, 0.08);
+  --line-strong: rgba(255, 255, 255, 0.14);
+  --muse-accent: #6eb5ff;
+  --accent: var(--muse-accent);
+  --accent-2: #a78bfa;
+  --accent-3: #5cd4b0;
+  --accent-grad: linear-gradient(135deg, var(--accent), var(--accent-2));
+  --hover-bg: rgba(255, 255, 255, 0.06);
+  --hover-bg-strong: rgba(255, 255, 255, 0.10);
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --font-display: "SF Pro Display", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-body: "SF Pro Text", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --shadow-pop: 0 24px 80px -12px rgba(0, 0, 0, 0.55);
+  --shadow-soft: 0 8px 32px -8px rgba(0, 0, 0, 0.35);
+  background: transparent;
 }
-
-/* No header element anymore, but macOS still needs a drag region or the
-   window becomes un-movable. A thin strip along the top of the shell covers
-   the traffic-light row and lets the user grab the window. Kept narrow
-   (24px) so it doesn't eat clicks on content below; panes add their own
-   top padding to stay clear of it. */
-.shell::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 24px;
-  -webkit-app-region: drag;
-  z-index: 10;
-}
-
-/* Brand mark — kept quiet; accent only appears as a small signal. */
-.brand {
-  font-family: var(--font-display);
-  font-style: italic;
-  font-weight: 400;
-  font-size: 28px;
-  line-height: 1;
-  letter-spacing: 0.2px;
-  background: var(--accent-grad);
-  -webkit-background-clip: text;
-          background-clip: text;
-  color: transparent;
-  -webkit-text-fill-color: transparent;
-}
-/* ⌘K hint sits where the old tab nav used to. It's purely decorative — the
-   actual shortcut is global — but it makes the app discoverable at a glance. */
-.topbar-hint {
-  font-size: 11px;
-  letter-spacing: 1.6px;
-  text-transform: uppercase;
-  color: var(--fg-muted);
-  padding: 4px 10px;
-  border: 1px solid var(--line-strong);
-  border-radius: 999px;
-  -webkit-app-region: no-drag;
-}
-
-.tabpane { position: relative; overflow: hidden; }
-/* Tabs sit atop each other; the active one is revealed by the body[data-tab]
-   attribute below. Each tab sets its OWN display value so no generic `block`
-   rule stomps on flex/grid layouts. */
-.tab { position: absolute; inset: 0; display: none; }
-body[data-tab="radio"]   #radio   { display: flex; }
-body[data-tab="library"] #library { display: flex; }
-body[data-tab="tape"]    #tape    { display: flex; }
-
-/* ======================================================================== */
-/* Radio tab                                                                  */
-/* ======================================================================== */
-
-/* Radio tab — modes-as-hero layout.
-   Top:   compact now-playing strip (hides when nothing is playing).
-   Below: colorful mode cards grid, the reason this tab exists.
-   Rationale: the user opens this tab to SWITCH what they're hearing, not to
-   stare at what's currently playing (echo does that job). So the
-   mode picker deserves the real estate. */
-.tab-radio {
-  flex-direction: column;
-  align-items: stretch;
-  justify-content: flex-start;
-  /* top padding leaves room for the invisible 24px drag strip + breathing. */
-  padding: 44px 56px 56px;
-  gap: 28px;
-  overflow-y: auto;
-}
-
-/* Now-playing strip: horizontal mini-card at the top. Hidden entirely when
-   nothing is loaded — no "empty" placeholder, just no strip. */
-.now-strip {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 12px 14px;
-  background: var(--bg-raised);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-soft);
-}
-.now-strip[hidden] { display: none; }
-.now-meta {
-  flex: 1 1 auto;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-.now-meta .title {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--fg);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.now-meta .artist {
-  font-size: 12px;
-  color: var(--fg-muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.now-actions { display: flex; gap: 6px; flex: 0 0 auto; }
-
-/* Small cover variant used in the strip — drops the halo (too heavy at 40px). */
-.cover-sm {
-  width: 44px;
-  height: 44px;
-  border-radius: var(--radius-sm);
-  flex: 0 0 auto;
-}
-.cover-sm::before { display: none !important; }
-
-/* Cover art. The soft ambient glow is the same image, blurred and scaled —
-   so it's auto-tinted to whatever the current cover is without running a
-   color-extraction pass. ::before is the halo, .cover-img sits above. */
-.cover {
-  position: relative;
-  width: 148px;
-  height: 148px;
-  flex: 0 0 auto;
-  border-radius: var(--radius-md);
-  background: var(--bg-raised);
-  background-image: var(--cover, none);
-  background-size: cover;
-  background-position: center;
-  box-shadow: var(--shadow-pop);
-  transition: transform 420ms cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-.cover::before {
-  content: '';
-  position: absolute;
-  inset: -14px;
-  background-image: var(--cover, none);
-  background-size: cover;
-  background-position: center;
-  border-radius: 10px;
-  filter: blur(28px) saturate(1.2);
-  opacity: 0.55;
-  z-index: -1;
-  pointer-events: none;
-  transition: opacity 420ms ease;
-}
-.cover.empty { background-color: var(--bg-raised); }
-.cover.empty::before { opacity: 0; }
-/* Icon buttons: circular hit area, crisp SVG inside. Heart flips fill/stroke
-   via the .liked class so the state is visually obvious without a color. */
-.icon-btn {
-  width: 28px; height: 28px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 999px;
-  color: var(--fg-muted);
-  transition: color 140ms ease, background 140ms ease, transform 120ms ease;
-}
-.icon-btn:hover  { color: var(--fg); background: var(--hover-bg-strong); }
-.icon-btn:active { transform: scale(0.92); }
-.icon-btn svg    { width: 16px; height: 16px; display: block; }
-.icon-btn.heart svg path { fill: none; stroke: currentColor; stroke-width: 1.6; }
-.icon-btn.heart.liked        { color: var(--fg); }
-.icon-btn.heart.liked svg path { fill: currentColor; stroke: currentColor; }
-
-/* Queue count pill — compact "up next · N" indicator living in .now-actions.
-   Clicking it pops cmdk with `/queue` pre-filled (see radio.js wireControls). */
-.now-queue-btn {
-  height: 24px;
-  padding: 0 10px;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  border-radius: 999px;
-  font-size: 11px;
-  font-weight: 500;
-  font-variant-numeric: tabular-nums;
-  color: var(--fg-muted);
-  background: var(--hover-bg);
-  transition: color 140ms ease, background 140ms ease, transform 120ms ease;
-  cursor: pointer;
-}
-.now-queue-btn::before {
-  content: '·';
-  opacity: 0.55;
-  margin-right: 2px;
-}
-.now-queue-btn:hover  { color: var(--fg); background: var(--hover-bg-strong); }
-.now-queue-btn:active { transform: scale(0.94); }
-
-/* Mode grid — data-driven from modes/index.js, wraps at 3 columns. Inactive
-   modes are pushed deep into the background so the active one really pops. */
-/* Mode cards — the hero of the radio tab. Each card is a pickable chip; the
-   currently-active one gets a gradient wash + soft glow. Hues rotate via the
-   data-accent index so adding a mode doesn't require picking a color. */
-.mode-cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 14px;
-  align-content: start;
-}
-.mode-card {
-  position: relative;
-  text-align: left;
-  padding: 20px 20px 22px;
-  min-height: 110px;
-  background: var(--bg-raised);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-md);
-  color: var(--fg);
-  overflow: hidden;
-  cursor: pointer;
-  transition: transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1),
-              box-shadow 220ms ease,
-              border-color 220ms ease,
-              background 220ms ease;
-}
-.mode-card:hover {
-  transform: translateY(-2px);
-  border-color: var(--line-strong);
-  box-shadow: var(--shadow-soft);
-}
-.mode-card__label {
-  display: block;
-  font-family: var(--font-display);
-  font-size: 24px;
-  font-weight: 500;
-  letter-spacing: 0.2px;
-  line-height: 1.1;
-  text-transform: lowercase;
-}
-.mode-card__desc {
-  display: block;
-  margin-top: 8px;
-  font-size: 12px;
-  color: var(--fg-muted);
-  letter-spacing: 0.3px;
-}
-/* The pulse is a gradient shape sitting in the card — faint on idle, opaque +
-   slowly drifting when the card is active. Creates a "this one is alive" feel
-   without literally animating the whole card. */
-.mode-card__pulse {
-  position: absolute;
-  right: -40px;
-  bottom: -40px;
-  width: 140px;
-  height: 140px;
-  border-radius: 50%;
-  background: var(--card-accent, var(--accent));
-  opacity: 0.08;
-  filter: blur(28px);
-  transition: opacity 320ms ease, transform 320ms ease;
-  pointer-events: none;
-}
-.mode-card:hover .mode-card__pulse { opacity: 0.22; transform: scale(1.1); }
-
-/* Per-card accent hue — read by --card-accent. CSS-only rotation through a
-   small token set, enough to keep the mode list legible without becoming UI. */
-.mode-card[data-accent="0"] { --card-accent: var(--accent); }
-.mode-card[data-accent="1"] { --card-accent: var(--accent-2); }
-.mode-card[data-accent="2"] { --card-accent: var(--accent-3); }
-.mode-card[data-accent="3"] { --card-accent: var(--accent); }
-.mode-card[data-accent="4"] { --card-accent: var(--accent-2); }
-.mode-card[data-accent="5"] { --card-accent: var(--accent-3); }
-
-.mode-card.active {
-  color: var(--fg);
-  border-color: transparent;
-  background: var(--accent-grad);
-  box-shadow: 0 14px 40px -14px var(--card-accent);
-}
-.mode-card.active .mode-card__label { color: #fff; }
-.mode-card.active .mode-card__desc  { color: rgba(255, 255, 255, 0.82); }
-.mode-card.active .mode-card__pulse { opacity: 0; }
-/* Status hint (overlay, out of flow) */
-.radio-status {
-  position: absolute;
-  top: 50%; left: 50%;
-  transform: translate(-50%, -50%);
-  color: var(--fg-muted);
-  font-size: 12px;
-  letter-spacing: 0.3px;
-  pointer-events: none;
-}
-.radio-status:empty { display: none; }
-
-/* Radio visual pass: this page is allowed to be a little theatrical because
-   cmdk owns the UX. The tab should feel like the runtime is alive, not like a
-   settings grid. */
-.tab-radio {
-  position: relative;
-  z-index: 0;
-  padding: 48px 64px 60px;
-  gap: 26px;
-}
-.radio-backdrop {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-  pointer-events: none;
-  z-index: 0;
-}
-.radio-backdrop::before {
-  content: '';
-  position: absolute;
-  inset: 20px 32px 32px;
-  border: 1px solid var(--line);
-  border-radius: calc(var(--radius-lg) + 18px);
-  opacity: 0.7;
-}
-.radio-backdrop span {
-  position: absolute;
-  width: 38vw;
-  height: 38vw;
-  max-width: 520px;
-  max-height: 520px;
-  border-radius: 50%;
-  filter: blur(50px);
-  opacity: 0.16;
-  mix-blend-mode: multiply;
-}
-.radio-backdrop span:nth-child(1) {
-  left: -10vw;
-  top: 10vh;
-  background: var(--accent);
-}
-.radio-backdrop span:nth-child(2) {
-  right: -8vw;
-  top: 0;
-  background: var(--accent-2);
-}
-.radio-backdrop span:nth-child(3) {
-  right: 20vw;
-  bottom: -18vw;
-  background: var(--accent-3);
-}
-.radio-stage {
-  position: relative;
-  z-index: 1;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(220px, 0.34fr);
-  align-items: stretch;
-  gap: 18px;
-  min-height: 156px;
-  padding: 18px;
-  background:
-    linear-gradient(135deg, color-mix(in srgb, var(--bg-raised), transparent 4%), color-mix(in srgb, var(--bg), transparent 18%)),
-    radial-gradient(circle at 18% 10%, color-mix(in srgb, var(--accent), transparent 76%), transparent 42%);
-  border: 1px solid var(--line);
-  border-radius: calc(var(--radius-lg) + 8px);
-  box-shadow: var(--shadow-soft);
-  overflow: hidden;
-}
-.radio-stage::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background-image:
-    linear-gradient(var(--line) 1px, transparent 1px),
-    linear-gradient(90deg, var(--line) 1px, transparent 1px);
-  background-size: 34px 34px;
-  mask-image: radial-gradient(circle at 55% 35%, black, transparent 72%);
-  opacity: 0.42;
-  pointer-events: none;
-}
-
-.radio-signal {
-  position: absolute;
-  left: 28px;
-  bottom: 20px;
-  display: flex;
-  align-items: end;
-  gap: 5px;
-  height: 34px;
-  opacity: 0.28;
-  pointer-events: none;
-}
-.radio-signal span {
-  width: 5px;
-  border-radius: 999px;
-  background: var(--accent-grad);
-  animation: radio-signal 1.8s ease-in-out infinite;
-}
-.radio-signal span:nth-child(1) { height: 12px; animation-delay: -0.4s; }
-.radio-signal span:nth-child(2) { height: 24px; animation-delay: -0.1s; }
-.radio-signal span:nth-child(3) { height: 18px; animation-delay: -0.7s; }
-.radio-signal span:nth-child(4) { height: 30px; animation-delay: -0.25s; }
-@keyframes radio-signal {
-  0%, 100% { transform: scaleY(0.65); opacity: 0.45; }
-  50% { transform: scaleY(1); opacity: 1; }
-}
-
-.radio-stage .now-strip {
-  position: relative;
-  z-index: 1;
-  min-width: 0;
-  align-self: stretch;
-  padding: 24px;
-  gap: 22px;
-  background: color-mix(in srgb, var(--bg-raised), transparent 14%);
-  border-color: var(--line);
-  border-radius: var(--radius-lg);
-  box-shadow: none;
-  backdrop-filter: blur(10px);
-}
-.radio-stage .now-strip[hidden] {
-  display: flex;
-  visibility: hidden;
-}
-.radio-stage .cover-sm {
-  width: 108px;
-  height: 108px;
-  border-radius: calc(var(--radius-md) + 4px);
-}
-.radio-stage .cover-sm::before {
-  display: block !important;
-  inset: -18px;
-  opacity: 0.28;
-}
-.radio-stage .now-meta .title {
-  font-family: var(--font-display);
-  font-size: 32px;
-  font-weight: 520;
-  line-height: 1;
-}
-.radio-stage .now-meta .artist {
-  margin-top: 8px;
-  font-size: 14px;
-  letter-spacing: 0.2px;
-}
-.radio-stage .now-actions {
-  align-self: center;
-  gap: 10px;
-}
-.radio-stage .icon-btn {
-  width: 38px;
-  height: 38px;
-  border: 1px solid var(--line);
-  background: color-mix(in srgb, var(--bg-raised), transparent 28%);
-}
-.radio-stage .icon-btn svg {
-  width: 18px;
-  height: 18px;
-}
-
-.radio-readout {
-  position: relative;
-  z-index: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: end;
-  padding: 22px;
-  border-radius: var(--radius-lg);
-  background:
-    linear-gradient(145deg, color-mix(in srgb, var(--accent), transparent 78%), transparent 58%),
-    color-mix(in srgb, var(--bg-raised), transparent 30%);
-  border: 1px solid var(--line);
-  overflow: hidden;
-}
-.radio-readout::before {
-  content: '';
-  position: absolute;
-  right: -28px;
-  top: -34px;
-  width: 150px;
-  height: 150px;
-  border: 1px solid color-mix(in srgb, var(--accent), transparent 35%);
-  border-radius: 50%;
-  opacity: 0.65;
-}
-.radio-readout__mode {
-  font-family: var(--font-display);
-  font-size: 54px;
-  line-height: 0.92;
-  font-weight: 520;
-  text-transform: lowercase;
-  overflow-wrap: anywhere;
-}
-.radio-readout__meta {
-  margin-top: 12px;
-  max-width: 18ch;
-  color: var(--fg-muted);
-  font-size: 13px;
-  line-height: 1.25;
-}
-
-.mode-cards {
-  position: relative;
-  z-index: 1;
-  grid-template-columns: repeat(12, minmax(0, 1fr));
-  gap: 16px;
-}
-.mode-card {
-  grid-column: span 4;
-  min-height: 142px;
-  padding: 24px;
-  border-radius: var(--radius-lg);
-  background:
-    radial-gradient(circle at 90% 0%, color-mix(in srgb, var(--card-accent), transparent 86%), transparent 38%),
-    color-mix(in srgb, var(--bg-raised), transparent 4%);
-}
-.mode-card:nth-child(4),
-.mode-card:nth-child(7) {
-  grid-column: span 5;
-}
-.mode-card:nth-child(5),
-.mode-card:nth-child(6) {
-  grid-column: span 3;
-}
-.mode-card__label {
-  font-size: 36px;
-  line-height: 0.96;
-}
-.mode-card__desc {
-  max-width: 17ch;
-  margin-top: 16px;
-  font-size: 14px;
-  line-height: 1.2;
-}
-.mode-card__index {
-  position: absolute;
-  right: 18px;
-  top: 16px;
-  color: var(--fg-dim);
-  font-size: 11px;
-  letter-spacing: 1.2px;
-  font-variant-numeric: tabular-nums;
-}
-.mode-card.active {
-  transform: translateY(-4px);
-}
-.mode-card.active::before {
-  content: '';
-  position: absolute;
-  left: 22px;
-  right: 22px;
-  bottom: 18px;
-  height: 2px;
-  background: rgba(255, 255, 255, 0.72);
-}
-.mode-card.active .mode-card__index {
-  color: rgba(255, 255, 255, 0.72);
-}
-
-@media (max-width: 760px) {
-  .tab-radio { padding: 42px 22px 34px; }
-  .radio-stage {
-    grid-template-columns: 1fr;
-  }
-  .radio-readout {
-    min-height: 128px;
-  }
-  .radio-readout__mode {
-    font-size: 44px;
-  }
-  .radio-stage .now-strip {
-    padding: 18px;
-  }
-  .radio-stage .cover-sm {
-    width: 76px;
-    height: 76px;
-  }
-  .radio-stage .now-meta .title {
-    font-size: 24px;
-  }
-  .mode-cards {
-    grid-template-columns: 1fr;
-  }
-  .mode-card,
-  .mode-card:nth-child(4),
-  .mode-card:nth-child(5),
-  .mode-card:nth-child(6),
-  .mode-card:nth-child(7) {
-    grid-column: auto;
-  }
+body[data-scheme="light"] {
+  --bg: #f5f5f7;
+  --bg-raised: rgba(0, 0, 0, 0.04);
+  --bg-overlay: rgba(245, 245, 247, 0.85);
+  --fg: rgba(0, 0, 0, 0.88);
+  --fg-muted: rgba(0, 0, 0, 0.50);
+  --fg-dim: rgba(0, 0, 0, 0.25);
+  --line: rgba(0, 0, 0, 0.06);
+  --line-strong: rgba(0, 0, 0, 0.12);
+  --muse-accent: #007aff;
+  --accent-2: #7c3aed;
+  --accent-3: #34d399;
+  --accent-grad: linear-gradient(135deg, var(--accent), var(--accent-2));
+  --hover-bg: rgba(0, 0, 0, 0.04);
+  --hover-bg-strong: rgba(0, 0, 0, 0.07);
+  --shadow-pop: 0 24px 80px -12px rgba(0, 0, 0, 0.18);
+  --shadow-soft: 0 8px 32px -8px rgba(0, 0, 0, 0.10);
 }
 
 /* ======================================================================== */
-/* Library tab                                                                */
+/*  §CMDK — the sole UI surface                                              */
 /* ======================================================================== */
-
-.tab-library {
-  flex-direction: column;
-  /* top padding clears the invisible 24px drag strip. */
-  padding: 44px 88px 60px;
-  overflow-y: auto;
-}
-body[data-tab="library"] .tab-library { display: flex; }
-
-.lib-filter { flex: 0 0 auto; padding: 4px 0 24px; color: var(--fg-muted); font-size: 12px; }
-.lib-filter input {
-  width: 100%;
-  padding: 6px 0;
-  color: var(--fg);
-  border-bottom: 1px solid var(--line);
-  transition: border-color 140ms ease;
-}
-.lib-filter input:focus { border-bottom-color: var(--line-strong); }
-.lib-filter input::placeholder { color: var(--fg-dim); }
-
-.lib-empty { color: var(--fg-muted); padding: 40px 0; }
-
-/* Date header as a timeline chapter marker. A big display-font date sits
-   aligned to a fixed column on the left so visual rhythm across many dates
-   lines up; a gradient rule extends to the right edge of the list. A dot
-   sits on the invisible timeline axis — future-proofing for when the user
-   has many dates, the dots will read as a vertical ribbon. */
-.lib-list { position: relative; }
-.lib-date {
-  position: relative;
-  margin-top: 44px;
-  padding: 0 0 14px 26px;
-  font-family: var(--font-display);
-  font-size: 22px;
-  font-weight: 500;
-  font-style: italic;
-  letter-spacing: 1px;
-  color: var(--fg-muted);
-  background-image: linear-gradient(to right, var(--line-strong), transparent 70%);
-  background-repeat: no-repeat;
-  background-position: 0 100%;
-  background-size: 100% 1px;
-}
-.lib-date::before {
-  /* The timeline dot — subtle when there's only one date, but aligned to a
-     consistent axis so it turns into a real ribbon once more dates accrue. */
-  content: '';
-  position: absolute;
-  left: 0; top: 0.55em;
-  width: 10px; height: 10px;
-  border-radius: 50%;
-  background: var(--accent-grad);
-  box-shadow: 0 0 0 3px var(--bg);
-}
-.lib-date:first-child { margin-top: 8px; }
-.lib-row {
-  position: relative;
-  display: grid;
-  grid-template-columns: 20px 1fr 200px 56px 48px;
-  gap: 20px;
-  align-items: baseline;
-  padding: 7px 8px 7px 10px;
-  margin: 0 -8px 0 -10px;
-  border-radius: var(--radius-sm);
-  color: var(--fg);
-  cursor: pointer;
-  transition: color 100ms ease, background 120ms ease;
-}
-.lib-row::before {
-  /* Accent rail appears only on the currently-playing row. */
-  content: '';
-  position: absolute;
-  left: 0; top: 8px; bottom: 8px;
-  width: 3px;
-  border-radius: 3px;
-  background: var(--accent-grad);
-  opacity: 0;
-  transition: opacity 160ms ease;
-}
-.lib-row:hover { background: var(--hover-bg); }
-.lib-row.playing .nm { font-weight: 500; color: var(--accent); }
-.lib-row.playing::before { opacity: 1; }
-.lib-row .idx { color: var(--fg-dim); text-align: right; font-size: 11px; }
-.lib-row .nm  { font-weight: 400; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.lib-row .ar  { color: var(--fg-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.lib-row .dt  { color: var(--fg-muted); text-align: right; }
-.lib-row .pc  { color: var(--fg-dim); text-align: right; font-size: 11px; }
-
-/* ======================================================================== */
-/* Tape tab                                                                   */
-/* ======================================================================== */
-
-/* Tape — what muse has been listening to today. The shape borrows from the
-   "Tape · 6 Variants" design exploration's variant ① (24h time scale): a
-   horizontal day-bar at the top with a chronological list below. Kept quiet
-   to match the rest of the surface — colored hue stripes per song stand in
-   for cover art so the eye can pattern-match repeat plays without us doing
-   a color-extraction pass. */
-.tab-tape {
-  flex-direction: column;
-  padding: 44px 56px 56px;
-  gap: 24px;
-  overflow: hidden;
-}
-
-/* Timeline strip. Bar is the canvas for play blocks; axis carries the hour
-   ticks. Both share a single 100% horizontal coordinate system, so blocks
-   and ticks line up without measuring. */
-.tape-timeline {
-  position: relative;
-  flex-shrink: 0;
-  padding: 18px 14px 22px;
-  background:
-    linear-gradient(135deg, color-mix(in srgb, var(--bg-raised), transparent 4%), color-mix(in srgb, var(--bg), transparent 18%));
-  border: 1px solid var(--line);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-soft);
-}
-.tape-timeline__bar {
-  position: relative;
-  height: 36px;
-  background: rgba(255, 255, 255, 0.04);
-  border-radius: 4px;
-  overflow: hidden;
-}
-.tape-block {
-  position: absolute;
-  top: 4px; bottom: 4px;
-  width: 6px;
-  margin-left: -3px;
-  border-radius: 2px;
-  background: hsl(var(--tape-hue) 60% 58%);
-  box-shadow: 0 0 8px hsl(var(--tape-hue) 70% 50% / 0.35);
-  transition: transform 120ms ease;
-}
-.tape-block:hover { transform: scaleY(1.15); }
-
-.tape-timeline__axis {
-  position: relative;
-  height: 12px;
-  margin-top: 8px;
-  font-family: "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
-  font-size: 9px;
-  color: var(--fg-dim);
-  letter-spacing: 1.2px;
-}
-.tape-timeline__axis span {
-  position: absolute;
-  top: 0;
-  transform: translateX(-50%);
-}
-.tape-timeline__axis span:first-child { transform: translateX(0); }
-.tape-axis__now {
-  color: var(--accent) !important;
-  font-weight: 600;
-}
-
-/* Play list. Newest first — adjacent same-song plays collapse into "× N" so
-   loop sessions don't dominate the visible rows. */
-.tape-list {
-  flex: 1 1 auto;
-  overflow-y: auto;
-  margin: 0 -8px;
-  padding: 0 8px;
-}
-.tape-row {
-  display: grid;
-  grid-template-columns: 48px 8px minmax(0, 1fr) 200px 48px;
-  gap: 14px;
-  align-items: baseline;
-  padding: 8px 10px;
-  margin: 2px 0;
-  border-radius: var(--radius-sm);
-  transition: background 120ms ease;
-}
-.tape-row:hover { background: var(--hover-bg); }
-.tape-row__time {
-  font-family: "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
-  font-size: 11px;
-  color: var(--fg-dim);
-  letter-spacing: 0.4px;
-}
-.tape-row__bullet {
-  width: 8px; height: 8px;
-  align-self: center;
-  border-radius: 50%;
-  background: hsl(var(--tape-hue) 60% 55%);
-  box-shadow: 0 0 6px hsl(var(--tape-hue) 70% 50% / 0.45);
-}
-.tape-row__name {
-  color: var(--fg);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.tape-row__artist {
-  color: var(--fg-muted);
-  font-size: 12px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.tape-row__count {
-  font-family: "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
-  color: var(--fg-muted);
-  font-size: 11px;
-  text-align: right;
-}
-
-/* ======================================================================== */
-/* Command palette                                                            */
-/* ======================================================================== */
-
 .cmdk {
   position: fixed; inset: 0;
-  display: none;
-  align-items: flex-start;
-  justify-content: center;
-  padding-top: 18vh;
-  z-index: 200;
-}
-.cmdk.open { display: flex; }
-.cmdk-backdrop {
-  position: absolute; inset: 0;
-  background: var(--bg-overlay);
-  backdrop-filter: blur(6px);
-}
-.cmdk-panel {
-  position: relative;
-  width: 520px;
-  max-width: 90vw;
-  background: var(--bg-raised);
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  box-shadow: var(--shadow-pop);
-}
-.cmdk-input { width: 100%; padding: 14px 16px; font-size: 14px; border-bottom: 1px solid var(--line); background: transparent; color: var(--fg); }
-.cmdk-input::placeholder { color: var(--fg-muted); }
-.cmdk-list { list-style: none; max-height: 40vh; overflow-y: auto; }
-.cmdk-list li { display: flex; justify-content: space-between; padding: 8px 16px; font-size: 13px; cursor: pointer; color: var(--fg); }
-.cmdk-list li.sel {
-  background: var(--hover-bg-strong);
-  /* Accent rail slides in on the selected row. */
-  box-shadow: inset 2px 0 0 var(--accent);
-}
-.cmdk-list .hint { color: var(--fg-muted); font-size: 12px; }
-.cmdk-list li.cmdk-empty {
-  color: var(--fg-muted);
-  font-size: 12px;
-  justify-content: center;
-  cursor: default;
-  padding: 14px 16px;
-}
-.cmdk-toast {
-  max-height: 0;
-  opacity: 0;
-  overflow: hidden;
-  padding: 0 16px;
-  font-size: 12px;
-  transition: max-height 0.22s ease, opacity 0.22s ease, padding 0.22s ease;
-}
-.cmdk-toast.show { max-height: 60px; opacity: 1; padding: 10px 16px; }
-.cmdk-toast[data-level="error"] {
-  color: #ffd1d1;
-  background: rgba(220, 64, 64, 0.18);
-  border-top: 1px solid rgba(220, 64, 64, 0.3);
-}
-.cmdk-toast[data-level="warn"] {
-  color: #ffe6b3;
-  background: rgba(217, 140, 40, 0.18);
-  border-top: 1px solid rgba(217, 140, 40, 0.32);
-}
-.cmdk-toast[data-level="ok"] {
-  color: #c7ffd6;
-  background: rgba(52, 183, 103, 0.18);
-  border-top: 1px solid rgba(52, 183, 103, 0.32);
-}
-.cmdk-hint { padding: 8px 16px; font-size: 11px; color: var(--fg-muted); border-top: 1px solid var(--line); }
-
-::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-thumb { background: var(--fg-dim); border-radius: 3px; }
-::-webkit-scrollbar-track { background: transparent; }
-
-/* ======================================================================== */
-/* Quiet command surface override                                             */
-/* ======================================================================== */
-
-body {
-  --bg: #0d0d10;
-  --bg-raised: rgba(255, 255, 255, 0.045);
-  --bg-overlay: rgba(13, 13, 16, 0.76);
-  --fg: rgba(255, 255, 255, 0.88);
-  --fg-muted: rgba(255, 255, 255, 0.48);
-  --fg-dim: rgba(255, 255, 255, 0.28);
-  --line: rgba(255, 255, 255, 0.085);
-  --line-strong: rgba(255, 255, 255, 0.14);
-  --muse-accent: #c6a15b;
-  --accent: var(--muse-accent);
-  --accent-2: #8a9aa8;
-  --accent-3: #d7c4a0;
-  --accent-grad: linear-gradient(135deg, var(--accent), #8a9aa8);
-  --hover-bg: rgba(255, 255, 255, 0.055);
-  --hover-bg-strong: rgba(255, 255, 255, 0.085);
-  --radius-sm: 7px;
-  --radius-md: 10px;
-  --radius-lg: 14px;
-  --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", Arial, sans-serif;
-  --font-body: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
-  --shadow-pop: 0 28px 80px rgba(0, 0, 0, 0.42);
-  --shadow-soft: 0 14px 44px rgba(0, 0, 0, 0.28);
-  background:
-    radial-gradient(circle at 50% -20%, rgba(255, 255, 255, 0.055), transparent 38%),
-    #0d0d10;
-}
-
-body[data-scheme="light"] {
-  --bg: #f4f1ea;
-  --bg-raised: rgba(20, 20, 22, 0.045);
-  --bg-overlay: rgba(244, 241, 234, 0.88);
-  --fg: rgba(22, 22, 24, 0.9);
-  --fg-muted: rgba(22, 22, 24, 0.56);
-  --fg-dim: rgba(22, 22, 24, 0.34);
-  --line: rgba(20, 20, 22, 0.095);
-  --line-strong: rgba(20, 20, 22, 0.16);
-  --accent-2: #72808a;
-  --accent-3: #a48956;
-  --accent-grad: linear-gradient(135deg, var(--accent), #72808a);
-  --hover-bg: rgba(20, 20, 22, 0.045);
-  --hover-bg-strong: rgba(20, 20, 22, 0.075);
-  --shadow-pop: 0 28px 80px rgba(40, 36, 28, 0.16);
-  --shadow-soft: 0 14px 44px rgba(40, 36, 28, 0.12);
-  background:
-    radial-gradient(circle at 50% -20%, rgba(255, 255, 255, 0.72), transparent 42%),
-    #f4f1ea;
-}
-
-.shell::before {
-  height: 34px;
-}
-
-.tab-radio {
-  padding: 34px 28px 28px;
-  gap: 12px;
-}
-.radio-backdrop,
-.radio-signal,
-.radio-readout,
-.radio-stage::before {
-  display: none;
-}
-.radio-stage {
-  display: block;
-  min-height: 0;
-  padding: 0;
-  background: transparent;
-  border: 0;
-  box-shadow: none;
-  overflow: visible;
-}
-.radio-stage .now-strip {
-  min-height: 74px;
-  padding: 12px;
-  gap: 12px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.042);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(18px);
-}
-.radio-stage .now-strip[hidden] {
-  display: none;
-}
-.radio-stage .cover-sm {
-  width: 48px;
-  height: 48px;
-  border-radius: 8px;
-  box-shadow: none;
-}
-.radio-stage .cover-sm::before {
-  display: none !important;
-}
-.radio-stage .now-meta .title {
-  font-family: var(--font-body);
-  font-size: 14px;
-  font-weight: 560;
-  line-height: 1.2;
-}
-.radio-stage .now-meta .artist {
-  margin-top: 3px;
-  font-size: 12px;
-}
-.radio-stage .now-progress {
-  width: min(420px, 100%);
-  height: 2px;
-  margin-top: 12px;
-  overflow: hidden;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
-}
-.radio-stage .now-progress span {
-  display: block;
-  width: 0;
-  height: 100%;
-  border-radius: inherit;
-  background: color-mix(in srgb, var(--accent), transparent 24%);
-  transition: width 180ms linear;
-}
-.radio-stage .icon-btn {
-  width: 30px;
-  height: 30px;
-  border: 0;
-  background: transparent;
-}
-
-.mode-cards {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 6px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.032);
-  border: 1px solid rgba(255, 255, 255, 0.07);
-}
-.mode-card,
-.mode-card:nth-child(4),
-.mode-card:nth-child(5),
-.mode-card:nth-child(6),
-.mode-card:nth-child(7) {
-  display: grid;
-  grid-template-columns: 70px minmax(0, 1fr) auto;
-  align-items: center;
-  grid-column: auto;
-  min-height: 44px;
-  padding: 9px 12px;
-  border: 0;
-  border-radius: 8px;
-  background: transparent;
-  box-shadow: none;
-  transform: none;
-}
-.mode-card:hover {
-  transform: none;
-  background: rgba(255, 255, 255, 0.052);
-  border-color: transparent;
-  box-shadow: none;
-}
-.mode-card__label {
-  grid-column: 1;
-  font-family: var(--font-body);
-  font-size: 13px;
-  font-weight: 560;
-  line-height: 1.2;
-  letter-spacing: 0;
-}
-.mode-card__desc {
-  grid-column: 2;
-  max-width: none;
-  margin: 0;
-  font-size: 12px;
-  line-height: 1.2;
-  color: var(--fg-muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.mode-card__index {
-  position: static;
-  grid-column: 3;
-  color: var(--fg-dim);
-}
-.mode-card__pulse,
-.mode-card.active::before {
-  display: none;
-}
-.mode-card.active {
-  color: var(--fg);
-  background: rgba(255, 255, 255, 0.075);
-  border-color: transparent;
-  box-shadow: inset 2px 0 0 var(--accent);
-  transform: none;
-}
-.mode-card.active .mode-card__label {
-  color: var(--fg);
-}
-.mode-card.active .mode-card__desc {
-  color: var(--fg-muted);
-}
-.mode-card.active .mode-card__index {
-  color: var(--accent);
-}
-
-.cmdk {
-  padding: 36px 24px 24px;
   align-items: stretch;
   justify-content: stretch;
+  z-index: 200;
 }
 .cmdk-backdrop {
-  background:
-    radial-gradient(circle at 50% 4%, rgba(255, 255, 255, 0.055), transparent 32%),
-    rgba(13, 13, 16, 0.96);
-  backdrop-filter: none;
+  position: absolute; inset: 0;
+  background: transparent;
 }
 .cmdk-panel {
   width: 100%;
   height: 100%;
-  max-width: none;
-  color: rgba(255, 255, 255, 0.88);
-  background: transparent;
-  border: 0;
-  border-radius: 0;
-  box-shadow: none;
-  backdrop-filter: none;
+  color: var(--fg);
+  background: var(--bg);
   display: flex;
   flex-direction: column;
   overflow: hidden;
 }
+
+/* Drag strip for traffic lights */
+.cmdk-panel::before {
+  content: '';
+  display: block;
+  flex: 0 0 28px;
+  -webkit-app-region: drag;
+}
+
+/* ---- Now-playing strip (search mode) ---- */
 .cmdk-now {
   display: grid;
-  grid-template-columns: 38px minmax(0, 1fr) 46px;
-  gap: 11px;
+  grid-template-columns: 42px minmax(0, 1fr) auto;
+  gap: 14px;
   align-items: center;
-  padding: 12px 14px 10px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.065);
+  padding: 4px 20px 12px;
+  border-bottom: 1px solid var(--line);
+  transition: padding 350ms cubic-bezier(0.2, 0.9, 0.25, 1),
+              gap 350ms cubic-bezier(0.2, 0.9, 0.25, 1),
+              border-color 350ms ease;
 }
-.cmdk-now[hidden] {
-  display: none;
-}
+.cmdk-now[hidden] { display: none; }
+
 .cmdk-now__cover {
-  width: 34px;
-  height: 34px;
-  border-radius: 7px;
-  background: rgba(255, 255, 255, 0.07);
+  width: 42px;
+  height: 42px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--accent), var(--bg-raised) 75%);
   background-image: var(--cover, none);
   background-size: cover;
   background-position: center;
-  box-shadow: 0 0 22px color-mix(in srgb, var(--accent), transparent 88%);
+  box-shadow: 0 2px 12px -2px rgba(0, 0, 0, 0.3);
+  -webkit-app-region: no-drag;
+  transition: width 350ms cubic-bezier(0.2, 0.9, 0.25, 1),
+              height 350ms cubic-bezier(0.2, 0.9, 0.25, 1),
+              border-radius 350ms ease,
+              box-shadow 350ms ease,
+              background-color 600ms ease;
 }
-.cmdk-now__meta {
-  min-width: 0;
-}
+.cmdk-now__meta { min-width: 0; }
 .cmdk-now__title {
-  color: var(--fg);
-  font-size: 13px;
-  font-weight: 560;
+  font-size: 13.5px;
+  font-weight: 600;
+  letter-spacing: -0.1px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  transition: font-size 300ms ease;
 }
 .cmdk-now__artist {
   margin-top: 2px;
+  font-size: 12px;
   color: var(--fg-muted);
-  font-size: 11px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  transition: font-size 300ms ease, margin-top 300ms ease;
 }
 .cmdk-now__time {
   color: var(--fg-dim);
   font-size: 11px;
+  font-variant-numeric: tabular-nums;
   text-align: right;
+  -webkit-app-region: no-drag;
 }
 .cmdk-now__progress {
-  height: 2px;
+  position: relative;
+  height: 2.5px;
   margin-top: 8px;
-  overflow: hidden;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--line);
+  overflow: hidden;
 }
 .cmdk-now__progress span {
+  position: relative;
   display: block;
-  width: 0;
   height: 100%;
   border-radius: inherit;
-  background: color-mix(in srgb, var(--accent), transparent 24%);
+  background: var(--accent);
+  opacity: 0.8;
+  transition: background 800ms ease;
 }
+.cmdk-now__progress span::after {
+  content: '';
+  position: absolute;
+  right: -1px; top: -3px;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  opacity: 0;
+  filter: blur(3px);
+  transition: opacity 400ms ease;
+}
+
+/* ---- Search input ---- */
 .cmdk-input-row {
+  position: relative;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
-  gap: 12px;
-  align-items: baseline;
-  padding: 12px 16px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  gap: 14px;
+  align-items: center;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--line);
 }
 .cmdk-mark {
-  /* Shell-prompt style glyph (U+276F). Color follows the accent so it reads
-     as an active, waiting-for-input cursor rather than inert chrome. */
-  font-family: "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
-  font-size: 16px;
+  font-family: "SF Mono", ui-monospace, Menlo, monospace;
+  font-size: 17px;
   font-weight: 500;
-  line-height: 22px;
-  color: color-mix(in srgb, var(--accent), transparent 10%);
-  /* Nudge down a hair so the chevron sits visually centered against the
-     taller input baseline instead of riding high. */
-  transform: translateY(1px);
+  line-height: 1;
+  color: var(--accent);
+  opacity: 0.7;
   user-select: none;
+  transition: color 800ms ease;
+  animation: chevron-breathe 3s ease-in-out infinite;
+}
+@keyframes chevron-breathe {
+  0%, 100% { opacity: 0.5; }
+  50%      { opacity: 0.9; }
 }
 .cmdk-input {
-  /* <input> elements don't inherit font-family from their parent by default
-     (UA style wins), which dropped the placeholder back to a generic system
-     sans that clashed with the rest of the UI. `font: inherit` pulls all the
-     typographic settings from the panel, then we override size/line-height. */
   font: inherit;
-  font-size: 14px;
-  line-height: 22px;
+  font-size: 16px;
+  font-weight: 400;
+  letter-spacing: -0.2px;
+  line-height: 24px;
   padding: 0;
   border: 0;
   background: transparent;
   color: var(--fg);
   outline: none;
+  caret-color: var(--accent);
 }
 .cmdk-input::placeholder {
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--fg-dim);
   font-weight: 400;
 }
-.cmdk-list {
+
+/* ---- Results list ---- */
+.cmdk-list-wrap {
   flex: 1 1 auto;
-  max-height: none;
-  padding: 6px;
+  position: relative;
+  overflow: hidden;
+  min-height: 0;
+}
+.cmdk-list {
+  list-style: none;
+  max-height: 100%;
+  padding: 4px 8px;
+  overflow-y: auto;
+  position: relative;
+  transition: opacity 200ms ease;
 }
 .cmdk-list li {
-  min-height: 44px;
+  display: flex;
+  justify-content: space-between;
+  min-height: 40px;
   align-items: center;
-  gap: 16px;
-  padding: 8px 10px;
-  border-radius: 9px;
-  font-size: 13px;
+  gap: 14px;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 13.5px;
+  cursor: pointer;
+  color: var(--fg);
+  position: relative;
+  z-index: 1;
+  transition: background 160ms ease;
 }
-.cmdk-list li.sel {
-  background: rgba(255, 255, 255, 0.078);
-  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--accent), transparent 10%);
-}
+.cmdk-list li:hover { background: var(--hover-bg); }
+.cmdk-list li.sel { background: transparent; }
+.cmdk-list li.sel .lbl { color: var(--fg); }
 .cmdk-list .lbl {
   min-width: 0;
   color: var(--fg);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  letter-spacing: -0.1px;
 }
 .cmdk-list .hint {
   flex: 0 1 auto;
   max-width: 45%;
-  color: var(--fg-muted);
+  color: var(--fg-dim);
   font-size: 12px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.cmdk-hint {
-  min-height: 32px;
-  padding: 9px 14px;
-  border-top: 1px solid rgba(255, 255, 255, 0.065);
+.cmdk-list li.cmdk-empty {
   color: var(--fg-dim);
-  font-size: 11px;
+  font-size: 13px;
+  justify-content: center;
+  min-height: 48px;
+  cursor: default;
 }
+
+/* ---- Gliding cursor ---- */
+.cmdk-cursor {
+  position: absolute;
+  top: 0; left: 0;
+  width: 0; height: 0;
+  border-radius: var(--radius-sm);
+  background: var(--hover-bg-strong);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 0;
+  transition: transform 200ms cubic-bezier(0.2, 0.9, 0.25, 1),
+              width   200ms cubic-bezier(0.2, 0.9, 0.25, 1),
+              height  200ms cubic-bezier(0.2, 0.9, 0.25, 1),
+              opacity 120ms ease;
+  will-change: transform, width, height;
+}
+
+/* ---- Toast ---- */
 .cmdk-toast {
   position: absolute;
-  right: 14px;
-  bottom: 8px;
+  right: 20px;
+  bottom: 12px;
   max-width: 48%;
-  max-height: none;
   padding: 0;
   opacity: 0;
   color: var(--fg-muted);
@@ -1337,72 +339,154 @@ body[data-scheme="light"] {
   text-align: right;
   pointer-events: none;
   transform: translateY(2px);
-  transition: opacity 140ms ease, transform 140ms ease;
+  transition: opacity 160ms ease, transform 160ms ease;
 }
-.cmdk-toast.show {
-  padding: 0;
-  opacity: 1;
-  transform: translateY(0);
+.cmdk-toast.show { opacity: 1; transform: translateY(0); }
+.cmdk-toast[data-level="ok"]    { color: var(--accent); }
+.cmdk-toast[data-level="warn"]  { color: #f0a030; }
+.cmdk-toast[data-level="error"] { color: #f06060; }
+
+/* ======================================================================== */
+/*  §IDLE — now-playing hero + input at bottom                               */
+/* ======================================================================== */
+.cmdk-panel.idle { justify-content: flex-end; }
+
+.cmdk-panel.idle .cmdk-now {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 48px 32px 24px;
+  border-bottom: none;
+  text-align: center;
+  -webkit-app-region: drag;
 }
-.cmdk-toast[data-level="ok"] {
-  color: color-mix(in srgb, var(--accent), var(--fg) 18%);
-  background: transparent;
-  border: 0;
+.cmdk-panel.idle .cmdk-now__cover {
+  width: 180px;
+  height: 180px;
+  border-radius: var(--radius-lg);
+  box-shadow:
+    0 4px 20px -4px color-mix(in srgb, var(--accent), transparent 40%),
+    0 18px 50px -12px color-mix(in srgb, var(--accent), transparent 70%),
+    0 0 0 0.5px rgba(255, 255, 255, 0.08) inset;
+  transition: box-shadow 800ms ease,
+              width 350ms cubic-bezier(0.2, 0.9, 0.25, 1),
+              height 350ms cubic-bezier(0.2, 0.9, 0.25, 1),
+              border-radius 350ms ease,
+              transform 200ms ease;
+  -webkit-app-region: no-drag;
+  transform: perspective(600px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
+  will-change: transform;
 }
-.cmdk-toast[data-level="warn"] {
-  color: rgba(255, 215, 150, 0.88);
-  background: transparent;
-  border: 0;
+.cmdk-panel.idle .cmdk-now__meta { max-width: 80%; }
+.cmdk-panel.idle .cmdk-now__title { font-size: 19px; letter-spacing: -0.3px; }
+.cmdk-panel.idle .cmdk-now__artist { margin-top: 5px; font-size: 14px; }
+.cmdk-panel.idle .cmdk-now__progress { width: min(280px, 100%); margin: 4px auto 0; }
+.cmdk-panel.idle .cmdk-now__progress span::after { opacity: 0.6; }
+.cmdk-panel.idle .cmdk-now__time {
+  position: absolute;
+  right: 20px; bottom: 20px;
+  font-size: 12px;
+  -webkit-app-region: no-drag;
 }
-.cmdk-toast[data-level="error"] {
-  color: rgba(255, 160, 160, 0.92);
-  background: transparent;
-  border: 0;
+.cmdk-panel.idle .cmdk-input-row {
+  flex: 0 0 auto;
+  border-top: 1px solid var(--line);
+  border-bottom: none;
+}
+.cmdk-panel.idle .cmdk-list-wrap { flex: 0 0 0; overflow: hidden; opacity: 0; }
+.cmdk-panel.idle .cmdk-list { opacity: 0; pointer-events: none; }
+.cmdk-panel.idle .cmdk-cursor { opacity: 0 !important; }
+
+/* ======================================================================== */
+/*  §ANIMATIONS                                                              */
+/* ======================================================================== */
+
+/* Row entrance stagger */
+@keyframes cmdk-row-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+.cmdk-list li.in { animation: cmdk-row-in 240ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards; }
+
+/* List reveal (idle → search) */
+.cmdk-panel:not(.idle) .cmdk-list-wrap {
+  animation: list-reveal 250ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+@keyframes list-reveal {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: none; }
 }
 
-body[data-scheme="light"] .radio-stage .now-strip,
-body[data-scheme="light"] .mode-cards {
-  background: rgba(255, 255, 255, 0.58);
-  border-color: rgba(20, 20, 22, 0.085);
+/* Cover pop (track change) */
+@keyframes cover-pop {
+  0%   { transform: scale(0.88); opacity: 0.3; filter: blur(2px); }
+  50%  { transform: scale(1.04); opacity: 1; filter: none; }
+  100% { transform: scale(1);    opacity: 1; }
 }
-body[data-scheme="light"] .mode-card:hover {
-  background: rgba(20, 20, 22, 0.045);
+.cmdk-now__cover.pop {
+  animation: cover-pop 520ms cubic-bezier(0.2, 0.9, 0.25, 1);
 }
-body[data-scheme="light"] .mode-card.active {
-  background: rgba(20, 20, 22, 0.065);
+
+/* Title slide-in */
+@keyframes title-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
 }
-body[data-scheme="light"] .radio-stage .now-progress,
-body[data-scheme="light"] .cmdk-now__progress {
-  background: rgba(20, 20, 22, 0.09);
+.cmdk-now__title { animation: title-in 400ms cubic-bezier(0.2, 0.9, 0.25, 1); }
+
+/* Window appear / leave */
+@keyframes panel-appear {
+  from { opacity: 0; transform: scale(0.97) translateY(8px); }
+  to   { opacity: 1; transform: none; }
 }
-body[data-scheme="light"] .cmdk-backdrop {
-  background:
-    radial-gradient(circle at 50% 4%, rgba(255, 255, 255, 0.95), transparent 38%),
-    rgba(244, 241, 234, 0.96);
+@keyframes panel-leave {
+  from { opacity: 1; transform: none; }
+  to   { opacity: 0; transform: scale(0.97) translateY(8px); }
 }
-body[data-scheme="light"] .cmdk-panel {
-  color: var(--fg);
+.cmdk-panel.appear { animation: panel-appear 280ms cubic-bezier(0.2, 0.9, 0.25, 1) both; }
+.cmdk-panel.leaving { animation: panel-leave 200ms cubic-bezier(0.4, 0, 1, 1) both; }
+
+/* Track change cross-fade */
+@keyframes now-change {
+  0%   { opacity: 1; transform: none; }
+  30%  { opacity: 0; transform: translateY(-4px); }
+  50%  { opacity: 0; transform: translateY(4px); }
+  100% { opacity: 1; transform: none; }
 }
-body[data-scheme="light"] .cmdk-now,
-body[data-scheme="light"] .cmdk-input-row,
-body[data-scheme="light"] .cmdk-hint {
-  border-color: rgba(20, 20, 22, 0.08);
+.cmdk-now.changing { animation: now-change 500ms cubic-bezier(0.2, 0.9, 0.25, 1); }
+
+/* First track loaded */
+@keyframes now-enter {
+  from { opacity: 0; transform: translateY(-10px); }
+  to   { opacity: 1; transform: none; }
 }
-body[data-scheme="light"] .cmdk-now__cover {
-  background-color: rgba(20, 20, 22, 0.06);
+.cmdk-now:not([hidden]) { animation: now-enter 400ms cubic-bezier(0.2, 0.9, 0.25, 1); }
+
+/* ---- Ambient wash ---- */
+.cmdk-ambient {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 1200ms ease, background 1200ms ease;
+  background: radial-gradient(ellipse 140% 70% at 50% -10%, var(--amb, transparent), transparent 55%);
 }
-body[data-scheme="light"] .cmdk-list li.sel {
-  background: rgba(20, 20, 22, 0.06);
-}
-body[data-scheme="light"] .cmdk-input::placeholder {
-  color: rgba(22, 22, 24, 0.36);
-}
+.cmdk-ambient[style*="--amb"] { opacity: 0.28; }
+body[data-scheme="light"] .cmdk-ambient[style*="--amb"] { opacity: 0.18; }
+
+/* ======================================================================== */
+/*  §SCROLLBAR + RESPONSIVE                                                  */
+/* ======================================================================== */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-thumb { background: var(--fg-dim); border-radius: 3px; }
+::-webkit-scrollbar-track { background: transparent; }
 
 @media (max-width: 760px) {
-  .cmdk {
-    padding: 32px 14px 14px;
-  }
-  .cmdk-list .hint {
-    max-width: 36%;
-  }
+  .cmdk-input-row { padding: 12px 14px; }
+  .cmdk-now { padding: 12px 14px 10px; }
+  .cmdk-list .hint { max-width: 36%; }
 }

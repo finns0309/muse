@@ -8,6 +8,9 @@ contextBridge.exposeInMainWorld('muse', {
   saveCookie: (c) => ipcRenderer.invoke('cookie-save', c),
   clearCookie: () => ipcRenderer.invoke('cookie-clear'),
   onOpenCommandSurface: (cb) => ipcRenderer.on('open-command-surface', () => cb()),
+  hideWindow: () => ipcRenderer.invoke('hide-window'),
+  resizeWindow: (w, h) => ipcRenderer.invoke('resize-window', w, h),
+  onWindowAppear: (cb) => ipcRenderer.on('window-appear', () => cb()),
   store: {
     get: (key, fallback) => ipcRenderer.invoke('store-get', key, fallback),
     set: (key, value) => ipcRenderer.invoke('store-set', key, value),

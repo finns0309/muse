@@ -187,14 +187,27 @@ ipcMain.handle('history-add', (_, event) => {
   store.set('history', next);
 });
 
+ipcMain.handle('hide-window', () => {
+  if (win && !win.isDestroyed()) win.hide();
+});
+
+ipcMain.handle('resize-window', (_, w, h) => {
+  if (!win || win.isDestroyed()) return;
+  const [curW, curH] = win.getSize();
+  if (curW === w && curH === h) return;
+  // Animate by setting size — Electron doesn't natively animate, but the
+  // content CSS transitions cover the visual part. We just snap the frame.
+  win.setSize(w, h, true);
+});
+
 function createWindow() {
   win = new BrowserWindow({
-    width: 660,
-    height: 540,
+    width: 720,
+    height: 405,
     minWidth: 520,
-    minHeight: 420,
-    backgroundColor: '#0d0d10',
-    titleBarStyle: 'hiddenInset',
+    minHeight: 120,
+    backgroundColor: '#1c1c1e',
+    titleBarStyle: 'customButtonsOnHover',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -207,16 +220,22 @@ function createWindow() {
 function showCommandSurface() {
   if (!win || win.isDestroyed()) createWindow();
   if (win.isMinimized()) win.restore();
-  win.setSize(720, 520, false);
-  win.center();
+  // Don't resize/center — respect the user's current window placement.
   win.show();
   win.focus();
   win.webContents.send('open-command-surface');
+  win.webContents.send('window-appear');
 }
 
 function registerShortcuts() {
-  const ok = globalShortcut.register('CommandOrControl+Shift+Space', showCommandSurface);
-  if (!ok) console.warn('[muse] global shortcut registration failed: CommandOrControl+Shift+Space');
+  // Option+Space is fast to hit and rarely conflicts (Spotlight is Cmd+Space,
+  // Raycast is typically Cmd+Space or Ctrl+Space, Alfred is Cmd+Space).
+  // Cmd+Shift+Space kept as a fallback for keyboards where Option is awkward.
+  for (const key of ['Alt+Space', 'CommandOrControl+Shift+Space']) {
+    const ok = globalShortcut.register(key, showCommandSurface);
+    if (ok) console.log(`[muse] global shortcut registered: ${key}`);
+    else console.warn(`[muse] global shortcut failed: ${key}`);
+  }
 }
 
 // If another muse is already running we'll find its /now endpoint responding.
