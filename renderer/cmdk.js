@@ -15,6 +15,7 @@ import * as playlist from './playlist.js';
 import * as tx from './transitions.js';
 import { COMMAND_BUILDERS, SONG_BUILDERS, ASYNC_BUILDERS, injectSetInput, formatArtists } from './commands.js';
 import { GLYPH } from './glyphs.js';
+import { toggleHeart } from './lib/library.js';
 
 // ---- DOM refs ---------------------------------------------------------------
 
@@ -105,6 +106,13 @@ export function mount(el) {
 
   document.addEventListener('keydown', (e) => {
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); actions.openCmdk(); }
+    // ⌘D — like / unlike the currently-playing track, from anywhere in the app
+    // (idle or search). Per-row liking in results is still available via ⌘-click.
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'd') {
+      e.preventDefault();
+      toggleCurrent();
+      return;
+    }
     if (e.key === 'Escape' && store.get().cmdkOpen) {
       if (inputEl.value.trim()) { inputEl.value = ''; refresh(); }
       else doHide();
@@ -273,10 +281,8 @@ function pickVariant(ev) {
 function onKey(e) {
   if (e.key === 'ArrowDown') { setCursor(Math.min(cursor + 1, entries.length - 1)); e.preventDefault(); return; }
   if (e.key === 'ArrowUp')   { setCursor(Math.max(cursor - 1, 0)); e.preventDefault(); return; }
-  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'd') {
-    if (entries[cursor]?.heartRun) { execute(cursor, 'heart'); e.preventDefault(); }
-    return;
-  }
+  // ⌘D is handled globally (document keydown → toggleCurrent); don't also
+  // act on the highlighted row here, or it'd double-fire.
   if (e.key === 'Enter') {
     const variant = (e.altKey || e.metaKey || e.shiftKey) ? 'alt' : 'primary';
     execute(cursor, variant);
@@ -302,6 +308,16 @@ function execute(i, variant = 'primary') {
 }
 
 // ---- Helpers ----------------------------------------------------------------
+
+// Like / unlike whatever is playing right now. Toast is the only feedback
+// (the now-playing area has no heart indicator), so we always show one.
+function toggleCurrent() {
+  const t = store.get().player.track;
+  if (!t) { showToast('nothing playing', 'warn'); return; }
+  toggleHeart(t)
+    .then((r) => showToast(r.isHearted ? `liked · ${t.name}` : `unliked · ${t.name}`, 'ok'))
+    .catch((err) => showToast(err?.message || 'like failed', 'error'));
+}
 
 function doHide() {
   tx.animateHide(panelEl, () => window.muse.hideWindow?.());
