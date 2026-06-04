@@ -1,7 +1,7 @@
 {
   "name": "muse",
   "productName": "Muse",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Local NetEase music runtime for fast library routing and accurate echo state.",
   "main": "main.js",
