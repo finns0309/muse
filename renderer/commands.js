@@ -23,6 +23,12 @@ export function formatArtists(track) {
   return (track.ar || track.artists || []).map((a) => a.name).join(', ');
 }
 
+function fmtDur(ms) {
+  if (!ms) return '';
+  const s = Math.round(ms / 1000);
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
+
 function sharedActions(track) {
   const isHearted = store.get().library.tracks.some((t) => t.id === track.id);
   return {
@@ -44,12 +50,17 @@ function sharedActions(track) {
   };
 }
 
-export function songEntry(track, { prefix = '' } = {}) {
+// Structured song row: glyph + name + artist (sub) + duration. `group` tags it
+// for the section header (e.g. "library" / "from netease"); `dim` softens the
+// glyph for cloud hits.
+export function songEntry(track, { glyph = GLYPH.LIKED, dim = false, group } = {}) {
   const isHearted = store.get().library.tracks.some((t) => t.id === track.id);
   return {
     kind: isHearted ? 'library-song' : 'song',
-    label: prefix + track.name,
-    hint: formatArtists(track) || track.al?.name || '',
+    glyph, dim, group,
+    name: track.name || '',
+    sub: formatArtists(track) || track.al?.name || '',
+    dur: fmtDur(track.dt),
     run: async () => {
       const ok = store.race('song-run');
       const result = await buildQueueForPickedTrack(track, { preserveMode: isHearted });
@@ -66,8 +77,10 @@ export function songEntry(track, { prefix = '' } = {}) {
 function queueEntry(track, idx, isCurrent) {
   return {
     kind: isCurrent ? 'queue-current' : 'queue-item',
-    label: (isCurrent ? prefix(GLYPH.PLAYING) : prefix(GLYPH.QUEUED)) + track.name,
-    hint: formatArtists(track) || track.al?.name || '',
+    glyph: isCurrent ? GLYPH.PLAYING : GLYPH.QUEUED,
+    name: track.name || '',
+    sub: formatArtists(track) || track.al?.name || '',
+    dur: fmtDur(track.dt),
     run: () => {
       if (isCurrent) return { close: true };
       player.playAt(idx);
@@ -114,7 +127,7 @@ function buildLibraryEntries(filter, tracks) {
   if (f && !filtered.length) {
     return [{ kind: 'library-empty', label: 'no matches', hint: '', run: () => ({}) }];
   }
-  return filtered.map((t) => songEntry(t, { prefix: prefix(GLYPH.LIKED) }));
+  return filtered.map((t) => songEntry(t, { glyph: GLYPH.LIKED }));
 }
 
 // ---- Helpers ----------------------------------------------------------------
@@ -299,7 +312,7 @@ export const SONG_BUILDERS = [
     if (q.length < 1) return [];
     return scoreLibrary(q, store.get().library.tracks)
       .slice(0, 8)
-      .map(({ track }) => songEntry(track, { prefix: prefix(GLYPH.LIKED) }));
+      .map(({ track }) => songEntry(track, { glyph: GLYPH.LIKED, group: 'library' }));
   },
 ];
 
@@ -313,14 +326,14 @@ export const ASYNC_BUILDERS = [
     } catch { return []; }
     if (!ok()) return [];
     const inLib = new Set(store.get().library.tracks.map((t) => t.id));
-    // Cloud (non-library) hits carry no marker: ♥ means "in your library",
-    // and its absence reads as "from NetEase search". ▶ is reserved for the
-    // currently-playing track (glyph spec), so we don't reuse it here.
+    // Cloud hits live in their own "from netease" group, marked with a dimmed
+    // ↓ (not-yet-yours). Library hits keep ♥; ▶ stays reserved for the
+    // currently-playing track.
     return songs
       .filter((s) => !inLib.has(s.id))
       .map((s) => songEntry(
         { id: s.id, name: s.name, ar: s.ar, al: s.al, dt: s.dt },
-        { prefix: '' }
+        { glyph: GLYPH.NETEASE, dim: true, group: 'from netease' }
       ));
   },
 ];

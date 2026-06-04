@@ -25,8 +25,10 @@ let cursorEl = null;
 // ---- State ------------------------------------------------------------------
 
 let entries = [];
+let rowEls = [];          // selectable row <li>s, parallel to entries (excludes section headers)
 let cursor = 0;
 let introPending = false;
+let lastQuery = '';       // current bare search query, for match highlighting
 let lastNowCover = '';
 let lastRenderedTrackId = null;
 let toastTimer = null;
@@ -71,6 +73,9 @@ export function mount(el) {
       </div>
       <div class="cmdk-list-wrap">
         <ul class="cmdk-list"></ul>
+      </div>
+      <div class="cmdk-foot">
+        <span class="foot-keys"><b>↑↓</b> navigate &nbsp;·&nbsp; <b>↵</b> play &nbsp;·&nbsp; <b>⌘K</b> command</span>
       </div>
       <div class="cmdk-toast" role="status"></div>
     </div>`;
@@ -192,6 +197,7 @@ function refresh() {
   else if (!q)   entries = [];
   else           entries = SONG_BUILDERS.flatMap((b) => b(q));
 
+  lastQuery = isCmd ? '' : q;   // only highlight matches for bare search
   cursor = 0;
   renderList();
 
@@ -215,6 +221,7 @@ function refresh() {
 
 function renderList() {
   listEl.innerHTML = '';
+  rowEls = [];
   if (!entries.length) {
     if (inputEl.value.trim()) {
       const li = document.createElement('li');
@@ -222,40 +229,92 @@ function renderList() {
       li.textContent = 'no results';
       listEl.appendChild(li);
     }
+    positionCursor(false);
     return;
   }
   const intro = introPending;
   introPending = false;
+
+  // Per-group counts for the section headers (library / from netease).
+  const counts = {};
+  entries.forEach((e) => { if (e.group) counts[e.group] = (counts[e.group] || 0) + 1; });
+
+  let prevGroup = null;
   entries.forEach((e, i) => {
+    // Section header when the group changes.
+    if (e.group && e.group !== prevGroup) {
+      prevGroup = e.group;
+      const h = document.createElement('li');
+      h.className = 'cmdk-sec';
+      const lbl = document.createElement('span'); lbl.className = 'sec-lbl'; lbl.textContent = e.group;
+      const cnt = document.createElement('span'); cnt.className = 'sec-cnt'; cnt.textContent = counts[e.group];
+      h.append(lbl, cnt);
+      listEl.appendChild(h);
+    }
+
     const li = document.createElement('li');
-    if (i === cursor) li.classList.add('sel');
+    li.className = 'row' + (i === cursor ? ' sel' : '');
     if (intro) { li.classList.add('in'); li.style.animationDelay = `${Math.min(i, 10) * 24}ms`; }
-    const label = document.createElement('span'); label.className = 'lbl'; label.textContent = e.label;
-    const hint  = document.createElement('span'); hint.className = 'hint'; hint.textContent = e.hint || '';
-    li.append(label, hint);
+
+    if (e.name !== undefined) {
+      // structured song row: glyph · name + artist · duration
+      li.classList.add('song');
+      if (e.dim) li.classList.add('dim');
+      const gl = document.createElement('span'); gl.className = 'gl'; gl.textContent = e.glyph || '';
+      const main = document.createElement('div'); main.className = 'rowmain';
+      const nm = document.createElement('span'); nm.className = 'nm'; highlightInto(nm, e.name, lastQuery);
+      const sub = document.createElement('span'); sub.className = 'sub'; sub.textContent = e.sub || '';
+      main.append(nm, sub);
+      const meta = document.createElement('span'); meta.className = 'meta';
+      const play = document.createElement('span'); play.className = 'play'; play.textContent = '↵ play';
+      const dur = document.createElement('span'); dur.className = 'dur'; dur.textContent = e.dur || '';
+      meta.append(play, dur);
+      li.append(gl, main, meta);
+    } else {
+      // legacy label/hint row (commands, modes, hints)
+      const label = document.createElement('span'); label.className = 'lbl'; label.textContent = e.label;
+      const hint  = document.createElement('span'); hint.className = 'hint'; hint.textContent = e.hint || '';
+      li.append(label, hint);
+    }
+
     li.addEventListener('click', (ev) => execute(i, pickVariant(ev)));
     li.addEventListener('mousemove', () => setCursor(i));
     listEl.appendChild(li);
+    rowEls.push(li);
   });
   positionCursor(false);
+}
+
+// Escape `text` and wrap the first case-insensitive occurrence of `q` in <mark>.
+function highlightInto(el, text, q) {
+  text = text || '';
+  const query = (q || '').trim();
+  el.textContent = '';
+  const idx = query ? text.toLowerCase().indexOf(query.toLowerCase()) : -1;
+  if (idx < 0) { el.textContent = text; return; }
+  el.appendChild(document.createTextNode(text.slice(0, idx)));
+  const mark = document.createElement('mark');
+  mark.textContent = text.slice(idx, idx + query.length);
+  el.appendChild(mark);
+  el.appendChild(document.createTextNode(text.slice(idx + query.length)));
 }
 
 // ---- Cursor -----------------------------------------------------------------
 
 function setCursor(i) {
   if (i === cursor || i < 0 || i >= entries.length) return;
-  const prev = listEl.children[cursor];
+  const prev = rowEls[cursor];
   if (prev) prev.classList.remove('sel');
   cursor = i;
-  const next = listEl.children[cursor];
+  const next = rowEls[cursor];
   if (next) { next.classList.add('sel'); next.scrollIntoView({ block: 'nearest' }); }
   positionCursor(true);
 }
 
 function positionCursor(animate) {
   if (!cursorEl) return;
-  const li = listEl.children[cursor];
-  if (!li || li.classList.contains('cmdk-empty')) { cursorEl.style.opacity = '0'; return; }
+  const li = rowEls[cursor];
+  if (!li) { cursorEl.style.opacity = '0'; return; }
   const place = () => {
     const y = li.offsetTop - listEl.scrollTop;
     cursorEl.style.opacity = '1';

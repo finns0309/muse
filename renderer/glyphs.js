@@ -15,6 +15,7 @@ export const GLYPH = {
   QUEUED:   '↳', // U+21B3  an up-next track (queue view)
   PLAYLIST: '▸', // U+25B8  a saved playlist
   MODE:     '◆', // U+25C6  a radio mode
+  NETEASE:  '↓', // U+2193  a NetEase cloud-search hit (not in your library)
 
   // keyboard keycaps — documented by the spec; rendered only if a hint bar
   // is ever reintroduced (the Spotlight surface currently has none)
