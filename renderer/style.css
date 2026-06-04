@@ -55,9 +55,6 @@ body {
   --line-strong: rgba(255, 255, 255, 0.14);
   --muse-accent: #6eb5ff;
   --accent: var(--muse-accent);
-  --accent-2: #a78bfa;
-  --accent-3: #5cd4b0;
-  --accent-grad: linear-gradient(135deg, var(--accent), var(--accent-2));
   --hover-bg: rgba(255, 255, 255, 0.06);
   --hover-bg-strong: rgba(255, 255, 255, 0.10);
   --radius-sm: 8px;
@@ -79,9 +76,6 @@ body[data-scheme="light"] {
   --line: rgba(0, 0, 0, 0.06);
   --line-strong: rgba(0, 0, 0, 0.12);
   --muse-accent: #007aff;
-  --accent-2: #7c3aed;
-  --accent-3: #34d399;
-  --accent-grad: linear-gradient(135deg, var(--accent), var(--accent-2));
   --hover-bg: rgba(0, 0, 0, 0.04);
   --hover-bg-strong: rgba(0, 0, 0, 0.07);
   --shadow-pop: 0 24px 80px -12px rgba(0, 0, 0, 0.18);

@@ -366,9 +366,6 @@ renderer/modes/
 renderer/modes/session.js
   playback session：跟踪 queue 来源语义，协调 mode/manual/radio/playlist 之间的切换
 
-design-demos/
-  早期视觉和交互方向 demo
-
 scripts/export_library.py
   从本地 library 和网易云听歌记录导出 library.xlsx
 ```
