@@ -5,9 +5,13 @@ How to cut a new build that testers can download from a fixed URL —
 
 ## One-time setup
 
-1. Create a GitHub **Personal Access Token** (classic) with the `repo` scope:
-   GitHub → Settings → Developer settings → Personal access tokens → Tokens (classic)
-   → Generate new token → check `repo` → copy it.
+1. Create a GitHub **Personal Access Token**. Either kind works:
+   - **Classic** (simplest): Settings → Developer settings → Personal access
+     tokens → Tokens (classic) → Generate → check **`repo`** → copy.
+   - **Fine-grained**: Settings → Developer settings → Personal access tokens
+     → Fine-grained → select the `muse` repo → Repository permissions →
+     **Contents: Read and write** (this is the one publishing needs) → copy.
+     ⚠️ Without Contents:write you get `403 Resource not accessible by token`.
 2. Keep it somewhere safe. You'll pass it to the release command as `GH_TOKEN`.
    (Optionally add `export GH_TOKEN=ghp_xxx` to your `~/.zshrc` so you don't
    retype it.)
