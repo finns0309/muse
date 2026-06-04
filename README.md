@@ -1,6 +1,6 @@
 # muse
 
-A summon-anywhere command palette for NetEase Cloud Music (网易云). Hit
+A summon-anywhere command palette for NetEase Cloud Music. Hit
 **⌥Space**, change what's playing, and it's gone again. No dock icon, no
 windows to manage — it lives in the menu bar and the whole UI is one palette.
 
@@ -13,8 +13,8 @@ muse is the controller half of a two-app setup. Its companion **[echo](https://g
 is a floating-lyrics widget that reads muse's playback state over a local
 socket — see [muse ↔ echo](#muse--echo).
 
-> macOS (Apple Silicon), Electron. Built around my own 红心 library; it's a
-> personal tool, not a polished NetEase client.
+> macOS (Apple Silicon), Electron. Built around my own liked-songs library;
+> it's a personal tool, not a polished NetEase client.
 
 ## Install
 
@@ -39,7 +39,7 @@ Everything happens in the palette. Type to search; prefix with `/` for commands.
 |-------|------|
 | `<query>` | search your library (and NetEase cloud at ≥2 chars) |
 | `/queue` `/queue <q>` | browse / filter the current queue |
-| `/library` `/library <q>` | browse / filter your 红心 library |
+| `/library` `/library <q>` | browse / filter your liked library |
 | `/pl` | list saved playlists |
 | `/pl <id or url>` | load a NetEase playlist and remember it |
 | `/mode`, `/daily`, `/discover`, … | switch listening mode |
@@ -59,7 +59,7 @@ Everything happens in the palette. Type to search; prefix with `/` for commands.
 
 ## How it works
 
-**Library** mirrors your NetEase 我喜欢 playlist locally, plus lightweight per-song
+**Library** mirrors your NetEase Liked Songs playlist locally, plus lightweight per-song
 metadata (`playCount`, `lastPlayedAt`). NetEase stays the source of truth —
 songs you only *play* (search, discover, playlists) never pollute the library;
 liking one (`⌘D`) calls `/like` and syncs the mirror.
@@ -102,7 +102,7 @@ Stored under Electron's `userData`, atomic writes (corrupt files quarantined as
 `.bad-<ts>.bak`):
 
 - `cookie.txt` — NetEase login
-- `data/library.json` — 红心 mirror + play metadata
+- `data/library.json` — liked-songs mirror + play metadata
 - `data/history.json` — play events (365-day retention)
 - `data/ui-prefs.json` — mode, appearance, accent
 - `data/saved-playlists.json` — playlists remembered via `/pl`
