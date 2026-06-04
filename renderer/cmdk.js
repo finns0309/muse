@@ -14,6 +14,7 @@ import * as accent from './accent.js';
 import * as playlist from './playlist.js';
 import * as tx from './transitions.js';
 import { COMMAND_BUILDERS, SONG_BUILDERS, ASYNC_BUILDERS, injectSetInput, formatArtists } from './commands.js';
+import { GLYPH } from './glyphs.js';
 
 // ---- DOM refs ---------------------------------------------------------------
 
@@ -64,7 +65,7 @@ export function mount(el) {
         <div class="cmdk-now__time" data-role="now-time">0:00</div>
       </div>
       <div class="cmdk-input-row">
-        <span class="cmdk-mark" aria-hidden="true">❯</span>
+        <span class="cmdk-mark" aria-hidden="true">${GLYPH.MARK}</span>
         <input class="cmdk-input" spellcheck="false" aria-label="Search songs or commands">
       </div>
       <div class="cmdk-list-wrap">

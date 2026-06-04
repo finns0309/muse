@@ -15,6 +15,7 @@ import { fetchSimilar } from './lib/similar.js';
 import { toggleHeart } from './lib/library.js';
 import { api } from './api.js';
 import * as playlist from './playlist.js';
+import { GLYPH, prefix } from './glyphs.js';
 
 // ---- Shared entry factories -------------------------------------------------
 
@@ -65,7 +66,7 @@ export function songEntry(track, { prefix = '' } = {}) {
 function queueEntry(track, idx, isCurrent) {
   return {
     kind: isCurrent ? 'queue-current' : 'queue-item',
-    label: (isCurrent ? '▶  ' : '↳  ') + track.name,
+    label: (isCurrent ? prefix(GLYPH.PLAYING) : prefix(GLYPH.QUEUED)) + track.name,
     hint: formatArtists(track) || track.al?.name || '',
     run: () => {
       if (isCurrent) return { close: true };
@@ -113,7 +114,7 @@ function buildLibraryEntries(filter, tracks) {
   if (f && !filtered.length) {
     return [{ kind: 'library-empty', label: 'no matches', hint: '', run: () => ({}) }];
   }
-  return filtered.map((t) => songEntry(t, { prefix: '♥  ' }));
+  return filtered.map((t) => songEntry(t, { prefix: prefix(GLYPH.LIKED) }));
 }
 
 // ---- Helpers ----------------------------------------------------------------
@@ -233,7 +234,7 @@ export const COMMAND_BUILDERS = [
     const filtered = filter ? saved.filter((p) => p.name.toLowerCase().includes(filter)) : saved;
     const entries = filtered.map((p) => ({
       kind: 'playlist-saved',
-      label: `▸  ${p.name}`,
+      label: prefix(GLYPH.PLAYLIST) + p.name,
       hint: `${p.trackCount} tracks`,
       run: () => playlist.load(p.id),
     }));
@@ -250,7 +251,7 @@ export const COMMAND_BUILDERS = [
     .filter((m) => commandMatches(q, ['mode', 'radio', m.id, m.label, m.description || '']))
     .map((m) => ({
       kind: 'mode',
-      label: 'mode · ' + m.label,
+      label: prefix(GLYPH.MODE) + m.label,
       hint: m.description || '',
       run: () => { actions.setMode(m.id); return { ok: `mode · ${m.label}` }; },
     })),
@@ -298,7 +299,7 @@ export const SONG_BUILDERS = [
     if (q.length < 1) return [];
     return scoreLibrary(q, store.get().library.tracks)
       .slice(0, 8)
-      .map(({ track }) => songEntry(track, { prefix: '♥  ' }));
+      .map(({ track }) => songEntry(track, { prefix: prefix(GLYPH.LIKED) }));
   },
 ];
 
@@ -312,11 +313,14 @@ export const ASYNC_BUILDERS = [
     } catch { return []; }
     if (!ok()) return [];
     const inLib = new Set(store.get().library.tracks.map((t) => t.id));
+    // Cloud (non-library) hits carry no marker: ♥ means "in your library",
+    // and its absence reads as "from NetEase search". ▶ is reserved for the
+    // currently-playing track (glyph spec), so we don't reuse it here.
     return songs
       .filter((s) => !inLib.has(s.id))
       .map((s) => songEntry(
         { id: s.id, name: s.name, ar: s.ar, al: s.al, dt: s.dt },
-        { prefix: '▶  ' }
+        { prefix: '' }
       ));
   },
 ];
