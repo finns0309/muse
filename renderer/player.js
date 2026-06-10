@@ -13,6 +13,10 @@ audio.preload = 'auto';
 // Legacy escape hatch. Normal end-of-queue behavior is session-driven: modes
 // extend, playlists repeat, manual one-offs stop.
 let queueLoop = false;
+// Repeat-one. We loop manually (in the 'ended' handler) rather than via the
+// native audio.loop property, so every repeat fires 'ended' and gets counted
+// + scrobbled instead of looping silently forever.
+let singleLoop = false;
 
 // ---- Public actions ---------------------------------------------------------
 
@@ -66,12 +70,10 @@ export async function playTrack(track, queue = null, queueIdx = -1) {
 export function setQueue(tracks, { startIdx = 0 } = {}) {
   if (!Array.isArray(tracks)) throw new TypeError('setQueue: tracks must be an array');
   // Clear single-loop carryover. Without this, leaving 'single' mode by
-  // picking a song in cmdk would silently inherit audio.loop=true and the
-  // new song would repeat forever. Modes that want loop call setLoop(true)
-  // AFTER setQueue (see app.js activateMode()); audio.loop is a persistent
-  // property on the element, so re-enabling it right after still takes
-  // effect on the track that setQueue just started playing.
-  audio.loop = false;
+  // picking a song in cmdk would silently inherit the loop flag and the new
+  // song would repeat forever. Modes that want loop call setLoop(true) AFTER
+  // setQueue (see app.js activateMode()).
+  singleLoop = false;
   if (!tracks.length) {
     store.set((s) => ({ ...s, player: { ...s.player, queue: [], queueIdx: -1 } }));
     return;
@@ -91,7 +93,11 @@ export function setQueue(tracks, { startIdx = 0 } = {}) {
 }
 
 export function setLoop(single) {
-  audio.loop = !!single;
+  // Manual loop (not audio.loop): the native property restarts the element
+  // WITHOUT firing 'ended', which would skip both the scrobble and the
+  // per-round history record. We re-loop in the 'ended' handler instead so a
+  // track on repeat is counted every round, like the official client.
+  singleLoop = !!single;
 }
 export function setQueueLoop(flag) { queueLoop = !!flag; }
 
@@ -182,9 +188,9 @@ export function onEnded(fn) { endHandlers.add(fn); return () => endHandlers.dele
 
 // ---- Scrobble (NetEase listen history) --------------------------------------
 // We accumulate played seconds per track across play/pause segments. On track
-// change or natural end we POST /scrobble if the track was actually listened
-// to — NetEase's own mobile client uses a similar "played enough" gate, we
-// copy the common Last.fm-style rule (>=30s OR >=50% of duration).
+// change or natural end we report the play (via window.muse.scrobble) if it was
+// actually listened to — NetEase's own client uses a similar "played enough"
+// gate; we copy the common Last.fm-style rule (>=30s OR >=50% of duration).
 
 let segmentStart = -1;   // audio.currentTime at last 'play' event, -1 if paused
 let accumPlayed = 0;     // seconds played so far for the current track
@@ -211,21 +217,23 @@ function maybeScrobble() {
   const dur = scrobbleTrack.dt ? scrobbleTrack.dt / 1000 : (audio.duration || 0);
   if (accumPlayed < 30 && (dur === 0 || accumPlayed < dur * 0.5)) return;
   scrobbled = true;
-  // NCM silently DROPS scrobbles with sourceid=0 — that was the reason listen
-  // history never updated. The mobile client always attributes plays to a
-  // real source (playlist / album / artist / djradio). For muse's 红心-centric
-  // flow, the natural source is the user's 我喜欢 playlist. For cloud-search
-  // samples not in 红心 we skip scrobble entirely: attributing them to the
-  // liked playlist would be a lie (NCM may reject or pollute analytics), and
-  // those plays shouldn't be in the user's listen history anyway.
-  const { tracks, likedPlaylistId } = store.get().library;
-  const inLibrary = tracks.some((t) => t.id === scrobbleTrack.id);
-  if (!likedPlaylistId || !inLibrary) {
-    console.info('[player] scrobble skipped · not in 红心 or library not loaded');
+  // Every play needs a sourceId (NetEase attributes each play to a list /
+  // album / radio). muse is 红心-centric, so we use the 我喜欢 playlist as the
+  // source for ALL plays — including cmdk cloud-search tracks not yet in 红心.
+  // The server accepts that, and the user wants every play in their history.
+  const { likedPlaylistId } = store.get().library;
+  if (!likedPlaylistId) {
+    console.info('[player] scrobble skipped · liked playlist not loaded yet');
     return;
   }
-  api('/scrobble', { id: scrobbleTrack.id, sourceid: likedPlaylistId, time: Math.floor(accumPlayed) })
-    .then(() => console.info('[player] scrobbled', scrobbleTrack.name, `sourceid=${likedPlaylistId}`))
+  const id = scrobbleTrack.id;
+  const name = scrobbleTrack.name;
+  const time = Math.floor(accumPlayed);
+  // startplay → 最近播放 list; playend (with elapsed time) → 听歌排行 count.
+  // Send both, in order — see main.js scrobble handler for channel details.
+  window.muse.scrobble({ action: 'startplay', id, sourceId: likedPlaylistId })
+    .then(() => window.muse.scrobble({ action: 'playend', id, sourceId: likedPlaylistId, time }))
+    .then((r) => console.info('[player] scrobbled', name, `sourceid=${likedPlaylistId} t=${time}s`, r?.data ?? ''))
     .catch((e) => console.warn('[player] scrobble failed', e?.message || e));
 }
 
@@ -242,10 +250,18 @@ audio.addEventListener('pause', () => {
   pushPlayerState();
 });
 audio.addEventListener('ended', () => {
-  // Notify mode subscribers first (they may want to extend the queue),
-  // then scrobble + advance. If audio.loop is on this event never fires.
+  // Notify mode subscribers first (they may want to extend the queue), then
+  // scrobble the play we just finished.
   for (const fn of endHandlers) { try { fn(); } catch (e) { console.error(e); } }
   maybeScrobble();
+  if (singleLoop) {
+    // Repeat-one: replay the same track and reset the scrobble accumulator so
+    // the next round is reported as its own play (startplay + playend again).
+    resetScrobble(store.get().player.track);
+    audio.currentTime = 0;
+    audio.play().catch(() => {});
+    return;
+  }
   next();
 });
 audio.addEventListener('loadedmetadata', () => {

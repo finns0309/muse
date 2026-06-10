@@ -131,9 +131,12 @@ export function wirePlayTracking() {
   });
   // Also count a track that *finished*, in case it's shorter than MIN_COUNT_SECONDS.
   onEnded(() => {
-    if (countedThisTrack) return;
     const track = store.get().player.track;
-    if (track?.id != null) { bumpPlayCount(track.id); recordHistory(track); }
+    if (!countedThisTrack && track?.id != null) { bumpPlayCount(track.id); recordHistory(track); }
+    // Re-arm for the next round. On repeat-one the track id never changes, so
+    // the id-change reset above won't fire — without this, a looped track would
+    // only ever be counted once.
+    countedThisTrack = false;
   });
 }
 

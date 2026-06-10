@@ -19,5 +19,7 @@ contextBridge.exposeInMainWorld('muse', {
   history: {
     add: (event) => ipcRenderer.invoke('history-add', event),
   },
+  // Report a play to NetEase listen history. payload: { action:'startplay'|'playend', id, sourceId, time? }
+  scrobble: (payload) => ipcRenderer.invoke('scrobble', payload),
   ncmBase: 'http://127.0.0.1:10754',
 });

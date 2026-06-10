@@ -190,6 +190,46 @@ ipcMain.handle('history-add', (_, event) => {
   store.set('history', next);
 });
 
+// Listen-history scrobble. Bypasses the local NCM HTTP wrapper's /scrobble
+// endpoint (which hardcodes weapi → music.163.com — NetEase silently DROPS
+// those now: HTTP 200 "success" but nothing lands in 最近播放 / 听歌排行).
+// The combination that still works, verified 2026-06 against a live account:
+//   • domain  clientlog.music.163.com   • crypto  eapi
+//   • client identity faked as the macOS desktop app (os=osx). pc / android /
+//     iphone identities are all dropped.
+// We talk to the package's request module directly to control domain+crypto.
+// Lazy-required: the package's main.js (already loaded above) creates the
+// anonymous_token file it reads on load, so requiring it after startup is safe.
+let ncmRequest = null;
+ipcMain.handle('scrobble', async (_, payload) => {
+  const { action, id, sourceId, time } = payload || {};
+  if (typeof id !== 'number' || !sourceId) return { code: 400, data: 'bad-args' };
+  let cookie;
+  try { cookie = fs.readFileSync(COOKIE_PATH, 'utf8').trim(); }
+  catch { return { code: 401, data: 'no-cookie' }; }
+  if (!cookie) return { code: 401, data: 'no-cookie' };
+
+  // Append the macOS-client identity the server requires for plays to count.
+  const osxCookie = `${cookie}; os=osx; appver=3.1.10.5100; osver=15.5; channel=netease`;
+  const src = String(sourceId);
+  const common = { mainsite: '1', mainsiteWeb: '1', content: `id=${src}` };
+  // startplay drives the 最近播放 list; playend (with elapsed `time`) drives
+  // the 听歌排行 counter. Both are needed for a play to fully register.
+  const entry = action === 'startplay'
+    ? { action: 'startplay', json: { id, type: 'song', ...common } }
+    : { action: 'play', json: { type: 'song', wifi: 0, download: 0, id, time: time || 0, end: 'playend', source: 'list', sourceId: src, ...common } };
+
+  try {
+    if (!ncmRequest) ncmRequest = require('@neteasecloudmusicapienhanced/api/util/request.js');
+    const r = await ncmRequest('/api/feedback/weblog', { logs: JSON.stringify([entry]) },
+      { crypto: 'eapi', cookie: osxCookie, realIP: '116.25.146.177', domain: 'https://clientlog.music.163.com' });
+    return r.body;
+  } catch (e) {
+    // request() rejects with the answer object { status, body } on non-200.
+    return e?.body || { code: 520, data: String(e?.message || e) };
+  }
+});
+
 ipcMain.handle('hide-window', () => {
   if (win && !win.isDestroyed()) win.hide();
 });

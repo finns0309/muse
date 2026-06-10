@@ -7,7 +7,7 @@
 //     id:          string        // stable — persisted in ui-prefs
 //     label:       string        // shown to user
 //     description: string        // one-liner tooltip/hint
-//     singleLoop?: boolean       // if true, audio.loop = true on activation
+//     singleLoop?: boolean       // if true, repeat this one track on activation
 //     async build(ctx):          // compute the queue + starting track
 //       returns { queue, startIdx? }
 //       where queue is an array of Track (from library.tracks) and startIdx
