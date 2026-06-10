@@ -4,6 +4,7 @@
   "version": "0.1.3",
   "private": true,
   "description": "Local NetEase music runtime for fast library routing and accurate echo state.",
+  "author": "Finn",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
